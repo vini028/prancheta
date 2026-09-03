@@ -1,0 +1,38 @@
+[package]
+name = "backend"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+# Servidor Web & Async
+axum = { version = "0.7", features = ["macros"] }
+tokio = { version = "1.0", features = ["full"] }
+tower-http = { version = "0.5", features = ["cors", "trace"] }
+
+# Banco de Dados & ORM (PostgreSQL)
+diesel = { version = "2.2", features = ["postgres", "r2d2", "chrono", "uuid"] }
+diesel_migrations = { version = "2.2", features = ["postgres"] }
+r2d2 = "0.8"
+
+# Suporte a UUID
+uuid = { version = "1.8", features = ["v4", "serde"] }
+
+# Autenticação e Criptografia (RBAC / Hash de Senha)
+argon2 = { version = "0.5", features = ["std"] }
+jsonwebtoken = "9.3"
+
+# Tratamento e Manipulação de Erros
+anyhow = "1.0"
+
+# Serialização / Deserialização JSON
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Utilitários de Data e Variáveis de Ambiente
+chrono = { version = "0.4", features = ["serde"] }
+dotenvy = "0.15"
+
+# Logs e Monitoramento
+tracing = "0.1"
+tracing-subscriber = "0.3"
+regex = "1.13.1"

@@ -1,0 +1,117 @@
+:root {
+  --input-border: #d1d5db;
+  --input-border-focus: #6366f1;
+  --input-bg: #ffffff;
+  --input-text: #1e293b;
+  --input-radius: 8px;
+  --input-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --input-transition: 0.2s ease;
+  --error-color: #ef4444;
+}
+
+.inputWrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  position: relative;
+}
+
+.fullWidth {
+  width: 100%;
+}
+
+/* ===== Label normal ===== */
+.label {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--input-text);
+}
+
+/* ===== Container do input ===== */
+.inputContainer {
+  position: relative;
+  display: flex;
+  align-items: center;
+  background: var(--input-bg);
+  border: 1.5px solid var(--input-border);
+  border-radius: var(--input-radius);
+  transition: border-color var(--input-transition), box-shadow var(--input-transition);
+  box-shadow: var(--input-shadow);
+}
+
+.inputContainer:focus-within {
+  border-color: var(--input-border-focus);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+}
+
+/* ===== Input nativo ===== */
+.input {
+  flex: 1;
+  padding: 0.6rem 0.8rem;
+  font-size: 1rem;
+  font-family: inherit;
+  color: var(--input-text);
+  background: transparent;
+  border: none;
+  outline: none;
+  min-width: 0;
+  width: 100%;
+}
+
+.input::placeholder {
+  color: #9ca3af;
+  font-weight: 400;
+}
+
+/* ===== Ícones laterais ===== */
+.leftIcon {
+  padding-left: 0.75rem;
+  display: flex;
+  align-items: center;
+  color: #9ca3af;
+}
+.rightIcon {
+  padding-right: 0.75rem;
+  display: flex;
+  align-items: center;
+  color: #9ca3af;
+}
+
+/* ===== Label flutuante ===== */
+.floatingLabel {
+  position: absolute;
+  left: 0.75rem;
+  top: 0.7rem;
+  font-size: 1rem;
+  color: #9ca3af;
+  pointer-events: none;
+  transition: all var(--input-transition);
+  background: var(--input-bg);
+  padding: 0 0.2rem;
+}
+.floatingLabelActive {
+  top: -0.6rem;
+  left: 0.75rem;
+  font-size: 0.75rem;
+  color: var(--input-border-focus);
+  background: var(--input-bg);
+}
+
+/* ===== Estados de erro ===== */
+.hasError .inputContainer {
+  border-color: var(--error-color);
+}
+.hasError .inputContainer:focus-within {
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.2);
+}
+.errorMessage {
+  font-size: 0.8rem;
+  color: var(--error-color);
+  margin-top: 0.2rem;
+}
+
+/* ===== Disabled ===== */
+.input:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}

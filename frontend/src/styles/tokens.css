@@ -1,0 +1,97 @@
+/**
+ * Simples-ERP — Design Tokens
+ * -----------------------------------------------------------------------
+ * Direção visual: "livro-caixa operacional". A interface é neutra e fria
+ * (papel, não creme) para não competir com os dados; os NÚMEROS é que
+ * carregam identidade — sempre em mono tabular, cor semântica por sinal.
+ * Isso é intencional: em um ERP, preço, estoque e faturamento são o
+ * conteúdo, então são eles que recebem o tratamento tipográfico marcante.
+ * -----------------------------------------------------------------------
+ */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+
+:root {
+  /* ---- Cor: base ---- */
+  --ink-900: #0f1017;
+  --ink-800: #14151f;
+  --ink-700: #1d1f2e;
+  --ink-600: #2a2c3d;
+  --ink-500: #565973;
+
+  --canvas: #f1f2f6;
+  --surface: #ffffff;
+  --surface-sunken: #f6f7fa;
+  --border: #e2e4ec;
+  --border-strong: #c9cbdb;
+
+  --text-primary: #14151f;
+  --text-secondary: #5a5d72;
+  --text-muted: #8b8ea3;
+  --text-inverse: #f4f5f9;
+  --text-inverse-muted: #a8abc2;
+
+  /* ---- Cor: marca / ação ---- */
+  --brand: #4f46e5;
+  --brand-hover: #4338ca;
+  --brand-active: #3730a3;
+  --brand-bg: #eeecfd;
+
+  /* ---- Cor: semântica (ledger) ---- */
+  --positive: #16a34a;
+  --positive-bg: #e9f8ee;
+  --warning: #d97706;
+  --warning-bg: #fdf1de;
+  --danger: #dc2626;
+  --danger-bg: #fdeaea;
+  --info: #0ea5e9;
+  --info-bg: #e7f6fd;
+
+  /* ---- Cor: papéis (RBAC) ---- */
+  --role-admin: #4f46e5;
+  --role-admin-bg: #eeecfd;
+  --role-buyer: #0ea5e9;
+  --role-buyer-bg: #e7f6fd;
+  --role-seller: #16a34a;
+  --role-seller-bg: #e9f8ee;
+
+  /* ---- Tipografia ---- */
+  --font-ui: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-data: 'JetBrains Mono', ui-monospace, 'SF Mono', Consolas, monospace;
+
+  --text-xs: 0.75rem;
+  --text-sm: 0.8125rem;
+  --text-base: 0.9375rem;
+  --text-lg: 1.125rem;
+  --text-xl: 1.5rem;
+  --text-2xl: 2rem;
+
+  /* ---- Espaçamento (escala 4px) ---- */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+
+  /* ---- Forma ---- */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+  --radius-full: 999px;
+
+  /* ---- Elevação ---- */
+  --shadow-sm: 0 1px 2px rgba(15, 16, 23, 0.06);
+  --shadow-md: 0 4px 12px rgba(15, 16, 23, 0.08);
+  --shadow-lg: 0 16px 40px rgba(15, 16, 23, 0.14);
+
+  /* ---- Layout ---- */
+  --sidebar-w: 248px;
+  --topbar-h: 64px;
+  --transition: 0.16s ease;
+
+  color-scheme: light;
+}

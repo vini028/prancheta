@@ -1,0 +1,56 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: erp_simples_db
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: secretpassword
+      POSTGRES_DB: erp_simples_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - erp_simples_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin -d erp_simples_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: erp_simples_backend
+    ports:
+      - "3000:3000"
+    environment:
+      DATABASE_URL: postgres://admin:secretpassword@db:5432/erp_simples_db
+      JWT_SECRET: troque-esta-chave-em-producao
+    depends_on:
+      db:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: erp_simples_frontend
+    command: npm run dev -- --host
+    ports:
+      - "5173:5173"
+    environment:
+      VITE_API_URL: http://localhost:3000/api
+    depends_on:
+      - backend
+
+  adminer:
+    image: adminer
+    container_name: erp_simples_adminer
+    restart: always
+    ports:
+      - "8080:8080"
+    depends_on:
+      - db
+
+volumes:
+  erp_simples_pgdata:
