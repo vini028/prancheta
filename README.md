@@ -35,7 +35,7 @@ O sistema é protegido por autenticação JWT e segmentado em três níveis de p
 | Entrega | Data Limite | Escopo Principal / Entregável |
 | :--- | :--- | :--- |
 | **AC1** | **14/09/2026** | **Módulo do Comprador:** Cadastro de Fornecedores e Pedidos de Compra + Vídeo de apresentação. |
-| **AC2** | **13/10/2026** | **Módulo do Administrador:** Cadastro e Inventário de Produtos + Gestão de Roles de Usuários + Vídeo. |
+| **AC2** | **13/10/2026** | **Módulo do Administrador:** Cadastro e Gestão de Produtos + Gestão de Roles de Usuários + Vídeo. |
 | **AC3** | **08/11/2026** | **Módulo do Vendedor:** Cadastro de Clientes e Ponto de Venda (PDV) com baixa de estoque + Vídeo. |
 | **Prova Final** | **22/11/2026** | **Documentação & Refinamentos:** Diagrama de Casos de Uso, Diagrama de Classes e Alerta Visual de Estoque Baixo + Vídeo. |
 

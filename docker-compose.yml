@@ -1,17 +1,17 @@
 services:
   db:
     image: postgres:16-alpine
-    container_name: erp_simples_db
+    container_name: prancheta_db
     environment:
       POSTGRES_USER: admin
       POSTGRES_PASSWORD: secretpassword
-      POSTGRES_DB: erp_simples_db
+      POSTGRES_DB: prancheta_db
     ports:
       - "5432:5432"
     volumes:
-      - erp_simples_pgdata:/var/lib/postgresql/data
+      - prancheta_pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U admin -d erp_simples_db"]
+      test: ["CMD-SHELL", "pg_isready -U admin -d prancheta_db"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -20,11 +20,11 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: erp_simples_backend
+    container_name: prancheta_backend
     ports:
       - "3000:3000"
     environment:
-      DATABASE_URL: postgres://admin:secretpassword@db:5432/erp_simples_db
+      DATABASE_URL: postgres://admin:secretpassword@db:5432/prancheta_db
       JWT_SECRET: troque-esta-chave-em-producao
     depends_on:
       db:
@@ -34,7 +34,7 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-    container_name: erp_simples_frontend
+    container_name: prancheta_frontend
     command: npm run dev -- --host
     ports:
       - "5173:5173"
@@ -45,7 +45,7 @@ services:
 
   adminer:
     image: adminer
-    container_name: erp_simples_adminer
+    container_name: prancheta_adminer
     restart: always
     ports:
       - "8080:8080"
@@ -53,4 +53,4 @@ services:
       - db
 
 volumes:
-  erp_simples_pgdata:
+  prancheta_pgdata:

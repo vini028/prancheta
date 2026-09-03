@@ -30,4 +30,8 @@ pub fn create_router() -> Router<Arc<DbPool>> {
             "/api/admin/users/:id",
             delete(handlers::user_handler::delete_user_handler),
         )
-}
+
+        // Rotas de compras (ADMIN ou BUYER)
+        .route("/api/fornecedores", post(handlers::fornecedor_handler::create_fornecedor_handler).get(handlers::fornecedor_handler::list_fornecedores_handler))
+        .route("/api/pedidos-compra", post(handlers::pedido_handler::create_pedido_handler).get(handlers::pedido_handler::list_pedidos_handler))
+        }

@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
 export interface UserSession {
-  id: number;
+  id: string;
   name: string;
   email: string;
   role: 'ADMIN' | 'BUYER' | 'SELLER';

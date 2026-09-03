@@ -21,18 +21,18 @@ Este documento mapeia o desenvolvimento incremental do **Prancheta**, dividido e
 > **Foco:** Entrada de fornecedores e controle de compras de insumos para a papelaria.
 
 ### Back-end (Rust/Axum/Diesel)
-- [ ] Migration e model para a tabela `fornecedores` (`id`, `nome`, `cnpj`, `telefone`).
-- [ ] Migration e model para a tabela `pedidos_compra` (`id`, `fornecedor_id`, `item`, `quantidade`, `valor_total`, `comprador_id`).
-- [ ] Middleware para validação do perfil (`Comprador` ou `Admin`).
-- [ ] Handlers REST: `POST/GET /fornecedores` e `POST/GET /pedidos-compra`.
+- [x] Migration e model para a tabela `fornecedores` (`id`, `nome`, `cnpj`, `telefone`).
+- [x] Migration e model para a tabela `pedidos_compra` (`id`, `fornecedor_id`, `item`, `quantidade`, `valor_total`, `comprador_id`).
+- [x] Middleware para validação do perfil (`Comprador` ou `Admin`).
+- [x] Handlers REST: `POST/GET /fornecedores` e `POST/GET /pedidos-compra`.
 
 ### Front-end (React/Vite)
-- [ ] Form/Modal de cadastro e tabela de listagem de fornecedores.
-- [ ] Tela de registro de Pedidos de Compra.
-- [ ] Integração com os novos endpoints e controle de visibilidade por perfil.
+- [x] Form/Modal de cadastro e tabela de listagem de fornecedores.
+- [x] Tela de registro de Pedidos de Compra.
+- [x] Integração com os novos endpoints e controle de visibilidade por perfil.
 
 ### Entregáveis Ágeis
-- [ ] Atualização do Board no GitHub.
+- [x] Atualização do Board no GitHub.
 - [ ] Gravação e publicação do vídeo da funcionalidade da AC1.
 - [ ] Submissão individual no Google Classroom.
 

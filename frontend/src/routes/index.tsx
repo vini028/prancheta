@@ -5,6 +5,8 @@ import { RegisterPage } from '../features/auth/pages/Register.page';
 import { HomePage } from '../features/users/pages/Home.page';
 import { UsersManagementPage } from '../features/users/pages/UsersManagement.page';
 import { ChangePasswordPage } from '../features/users/pages/ChangePassword.page';
+import { SuppliersPage } from '../features/fornecedores/pages/Suppliers.page';
+import { PurchasesPage } from '../features/compras/pages/Purchases.page';
 import { PrivateRoute } from './PrivateRoute';
 
 export const AppRoutes: React.FC = () => {
@@ -18,6 +20,12 @@ export const AppRoutes: React.FC = () => {
       <Route element={<PrivateRoute />}>
         <Route path="/" element={<HomePage />} />
         <Route path="/change-password" element={<ChangePasswordPage />} />
+      </Route>
+
+      {/* Rotas Protegidas (Para ADMIN e BUYER) */}
+      <Route element={<PrivateRoute allowedRoles={['ADMIN', 'BUYER']} />}>
+        <Route path="/suppliers" element={<SuppliersPage />} />
+        <Route path="/purchases" element={<PurchasesPage />} />
       </Route>
 
       {/* Rota Protegida Exclusiva (Apenas ADMIN) */}
