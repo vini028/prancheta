@@ -42,7 +42,7 @@ export const PurchasesPage: React.FC = () => {
       <div style={{ marginBottom: 'var(--space-6)' }}>
         <PedidoForm onSuccess={loadData} />
       </div>
-      <PedidoTable pedidos={pedidos} fornecedores={fornecedores} loading={loading} />
+      <PedidoTable pedidos={pedidos} fornecedores={fornecedores} loading={loading} onRefresh={loadData} />
     </AppShell>
   );
 };

@@ -33,5 +33,9 @@ pub fn create_router() -> Router<Arc<DbPool>> {
 
         // Rotas de compras (ADMIN ou BUYER)
         .route("/api/fornecedores", post(handlers::fornecedor_handler::create_fornecedor_handler).get(handlers::fornecedor_handler::list_fornecedores_handler))
+        .route("/api/fornecedores/:id", put(handlers::fornecedor_handler::update_fornecedor_handler).delete(handlers::fornecedor_handler::delete_fornecedor_handler))
         .route("/api/pedidos-compra", post(handlers::pedido_handler::create_pedido_handler).get(handlers::pedido_handler::list_pedidos_handler))
-        }
+        .route("/api/pedidos-compra/:id", put(handlers::pedido_handler::update_pedido_handler).delete(handlers::pedido_handler::delete_pedido_handler))
+        .route("/api/pedidos-compra/:id/status", patch(handlers::pedido_handler::update_pedido_status_handler))
+        .route("/api/pedidos-compra/:id/itens", get(handlers::pedido_handler::get_pedido_itens_handler))
+}

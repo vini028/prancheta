@@ -10,6 +10,7 @@ const getErrorMessage = (error: unknown, fallback: string) =>
 
 export const SuppliersPage: React.FC = () => {
   const [fornecedores, setFornecedores] = useState<Fornecedor[]>([]);
+  const [editingFornecedor, setEditingFornecedor] = useState<Fornecedor | undefined>(undefined);
   const [loading, setLoading] = useState(true);
   const { showToast } = useToast();
 
@@ -31,12 +32,26 @@ export const SuppliersPage: React.FC = () => {
     });
   }, [loadFornecedores]);
 
+  const handleSuccess = () => {
+    setEditingFornecedor(undefined);
+    void loadFornecedores();
+  };
+
   return (
     <AppShell title="Fornecedores">
       <div style={{ marginBottom: 'var(--space-6)' }}>
-        <FornecedorForm onSuccess={loadFornecedores} />
+        <FornecedorForm 
+          key={editingFornecedor?.id ?? 'new'} 
+          fornecedor={editingFornecedor} 
+          onSuccess={handleSuccess} 
+        />
       </div>
-      <FornecedorTable fornecedores={fornecedores} loading={loading} />
+      <FornecedorTable 
+        fornecedores={fornecedores} 
+        loading={loading} 
+        onRefresh={loadFornecedores}
+        onEdit={(fornecedor) => setEditingFornecedor(fornecedor)}
+      />
     </AppShell>
   );
 };

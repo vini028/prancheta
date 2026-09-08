@@ -9,6 +9,7 @@ CREATE TABLE users (
     password_hash VARCHAR(255) NOT NULL,
     role VARCHAR(20) NOT NULL DEFAULT 'BUYER',
     created_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT NOW(),
     
     -- Constraint de validação de papéis (RBAC)
     CONSTRAINT chk_users_role CHECK (role IN ('ADMIN', 'BUYER', 'SELLER'))

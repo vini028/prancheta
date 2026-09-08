@@ -1,18 +1,20 @@
 import React, { useState } from 'react';
-import { createFornecedorApi } from '../api/fornecedoresApi';
+import { createFornecedorApi, updateFornecedorApi, type Fornecedor } from '../api/fornecedoresApi';
 import { Button, Card, Input, useToast } from '../../shared/ui';
 
 interface FornecedorFormProps {
   onSuccess: () => void;
+  fornecedor?: Fornecedor;
 }
 
 const getErrorMessage = (error: unknown, fallback: string) =>
   error instanceof Error ? error.message : fallback;
 
-export const FornecedorForm: React.FC<FornecedorFormProps> = ({ onSuccess }) => {
-  const [nome, setNome] = useState('');
-  const [cnpj, setCnpj] = useState('');
-  const [telefone, setTelefone] = useState('');
+export const FornecedorForm: React.FC<FornecedorFormProps> = ({ onSuccess, fornecedor }) => {
+  // Inicialização direta baseada nas props para evitar setState dentro do useEffect
+  const [nome, setNome] = useState(fornecedor?.nome ?? '');
+  const [cnpj, setCnpj] = useState(fornecedor?.cnpj ?? '');
+  const [telefone, setTelefone] = useState(fornecedor?.telefone ?? '');
   const [loading, setLoading] = useState(false);
   const { showToast } = useToast();
 
@@ -26,25 +28,37 @@ export const FornecedorForm: React.FC<FornecedorFormProps> = ({ onSuccess }) => 
 
     setLoading(true);
     try {
-      await createFornecedorApi({
-        nome: nome.trim(),
-        cnpj: cnpj.trim() || undefined,
-        telefone: telefone.trim() || undefined,
-      });
-      setNome('');
-      setCnpj('');
-      setTelefone('');
-      showToast('Fornecedor cadastrado com sucesso.', 'success');
+      if (fornecedor) {
+        await updateFornecedorApi(fornecedor.id, {
+          nome: nome.trim(),
+          cnpj: cnpj.trim() || undefined,
+          telefone: telefone.trim() || undefined,
+        });
+        showToast('Fornecedor atualizado com sucesso.', 'success');
+      } else {
+        await createFornecedorApi({
+          nome: nome.trim(),
+          cnpj: cnpj.trim() || undefined,
+          telefone: telefone.trim() || undefined,
+        });
+        showToast('Fornecedor cadastrado com sucesso.', 'success');
+      }
+      
+      if (!fornecedor) {
+        setNome('');
+        setCnpj('');
+        setTelefone('');
+      }
       onSuccess();
     } catch (err: unknown) {
-      showToast(getErrorMessage(err, 'Erro ao cadastrar fornecedor.'), 'error');
+      showToast(getErrorMessage(err, 'Erro ao salvar fornecedor.'), 'error');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <Card title="Novo fornecedor">
+    <Card title={fornecedor ? "Editar fornecedor" : "Novo fornecedor"}>
       <form onSubmit={handleSubmit}>
         <div
           style={{
@@ -59,7 +73,7 @@ export const FornecedorForm: React.FC<FornecedorFormProps> = ({ onSuccess }) => 
           <Input label="Telefone" value={telefone} onChange={(e) => setTelefone(e.target.value)} fullWidth />
         </div>
         <Button type="submit" isLoading={loading} loadingText="Salvando...">
-          Salvar fornecedor
+          {fornecedor ? "Atualizar fornecedor" : "Salvar fornecedor"}
         </Button>
       </form>
     </Card>

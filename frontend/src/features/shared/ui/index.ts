@@ -8,3 +8,4 @@ export { DataTable } from './DataTable/DataTable';
 export type { Column } from './DataTable/DataTable';
 export { AuthLayout } from './AuthLayout/AuthLayout';
 export { ToastProvider, useToast } from './Toast/ToastProvider';
+export { Modal } from './Modal/Modal';
