@@ -1,0 +1,148 @@
+/* ===== Botão de ação somente-ícone (Visualizar) ===== */
+.iconButton {
+  padding: 0.4rem 0.55rem !important;
+  line-height: 0;
+}
+
+/* ===== Cabeçalho do modal: dados do pedido ===== */
+.detailGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: var(--space-3) var(--space-5);
+  padding: var(--space-4);
+  background: var(--surface-sunken);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  margin-bottom: var(--space-5);
+}
+
+.detailField {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.detailLabel {
+  font-size: var(--text-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--text-muted);
+}
+
+.detailValue {
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ===== Seção de itens ===== */
+.sectionHeader {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+}
+
+.sectionTitle {
+  font-size: var(--text-base);
+  font-weight: 600;
+  margin: 0;
+  color: var(--text-primary);
+}
+
+.itemsWrapper {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.itemsTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-sm);
+}
+
+.itemsTable thead th {
+  text-align: left;
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--text-muted);
+  background: var(--surface-sunken);
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+.itemsTable tbody td {
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--border);
+  color: var(--text-primary);
+  vertical-align: middle;
+}
+
+.itemsTable tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.itemsTable tbody tr:hover td {
+  background: var(--surface-sunken);
+}
+
+.numericHead,
+.numeric {
+  text-align: right;
+}
+
+.numeric {
+  font-family: var(--font-data);
+  font-variant-numeric: tabular-nums;
+}
+
+.mutedCell {
+  color: var(--text-muted);
+}
+
+.totalRow td {
+  padding: var(--space-3);
+  font-weight: 700;
+  background: var(--surface-sunken);
+  border-top: 2px solid var(--border-strong);
+  border-bottom: none;
+}
+
+.totalLabel {
+  text-align: right;
+}
+
+.emptyItems {
+  padding: var(--space-8) var(--space-4);
+  text-align: center;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+
+/* ===== Loading (skeleton) ===== */
+.skeletonRow {
+  height: 14px;
+  margin: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  background: linear-gradient(90deg, var(--surface-sunken) 25%, var(--border) 37%, var(--surface-sunken) 63%);
+  background-size: 400% 100%;
+  animation: shimmer 1.4s ease infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0 50%;
+  }
+}
