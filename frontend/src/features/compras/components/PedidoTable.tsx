@@ -52,6 +52,15 @@ export const PedidoTable: React.FC<PedidoTableProps> = ({ pedidos, fornecedores,
   const [itens, setItens] = useState<PedidoItem[]>([]);
   const [loadingItens, setLoadingItens] = useState(false);
 
+  // Mapeia e enriquece os pedidos com o nome do fornecedor para permitir busca textual por nome
+  const pedidosComFornecedor = useMemo(() => {
+    const map = new Map(fornecedores.map((f) => [f.id, f.nome]));
+    return pedidos.map((p) => ({
+      ...p,
+      fornecedor_nome: map.get(p.fornecedor_id) ?? `#${p.fornecedor_id}`,
+    }));
+  }, [pedidos, fornecedores]);
+
   // Busca os itens do pedido ao abrir o popup
   useEffect(() => {
     if (!selectedPedido) {
@@ -110,9 +119,10 @@ export const PedidoTable: React.FC<PedidoTableProps> = ({ pedidos, fornecedores,
     }
   };
 
-  const columns: Column<Pedido>[] = [
-    { key: 'fornecedor', header: 'Fornecedor', render: (p) => fornecedorNome(p.fornecedor_id) },
-    { key: 'comprador', header: 'Comprador', render: (p) => p.comprador_nome },
+  const columns: Column<typeof pedidosComFornecedor[number]>[] = [
+    { key: 'id', header: 'Pedido', render: (p) => p.id },
+    { key: 'fornecedor_nome', header: 'Fornecedor', render: (p) => p.fornecedor_nome },
+    { key: 'comprador_nome', header: 'Comprador', render: (p) => p.comprador_nome },
     {
       key: 'status',
       header: 'Status',
@@ -156,13 +166,18 @@ export const PedidoTable: React.FC<PedidoTableProps> = ({ pedidos, fornecedores,
 
   return (
     <>
-      <DataTable
-        columns={columns}
-        rows={pedidos}
-        getRowId={(p) => String(p.id)}
-        loading={loading}
-        emptyTitle="Nenhum pedido de compra"
-      />
+      {/* Contêiner com estilo ajustado para expandir o campo de busca em 100% da largura */}
+      <div style={{ width: '100%' }}>
+        <DataTable
+          columns={columns}
+          rows={pedidosComFornecedor}
+          getRowId={(p) => String(p.id)}
+          searchKeys={['id', 'status', 'comprador_nome', 'fornecedor_nome']}
+          searchPlaceholder="Buscar por Número, Fornecedor, Comprador, Status..."
+          loading={loading}
+          emptyTitle="Nenhum pedido de compra"
+        />
+      </div>
 
       {/* Popup de Informações do Pedido */}
       <Modal isOpen={!!selectedPedido} onClose={() => setSelectedPedido(null)} title={`Detalhes do Pedido #${selectedPedido?.id}`}>

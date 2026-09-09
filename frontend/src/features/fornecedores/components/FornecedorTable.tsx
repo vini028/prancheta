@@ -47,7 +47,7 @@ export const FornecedorTable: React.FC<FornecedorTableProps> = ({ fornecedores, 
       rows={fornecedores}
       getRowId={(f) => String(f.id)}
       searchKeys={['nome', 'cnpj']}
-      searchPlaceholder="Buscar por nome ou CNPJ..."
+      searchPlaceholder="Buscar por Nome ou CNPJ..."
       loading={loading}
       emptyTitle="Nenhum fornecedor cadastrado"
       emptyHint="Cadastre o primeiro fornecedor acima."

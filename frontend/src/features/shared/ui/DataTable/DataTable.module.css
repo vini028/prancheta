@@ -8,7 +8,7 @@
 .toolbar {
   padding: var(--space-4);
   border-bottom: 1px solid var(--border);
-  max-width: 320px;
+  max-width: 500px;
 }
 
 .tableScroll {
