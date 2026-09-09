@@ -47,11 +47,6 @@ async fn main() -> Result<()> {
     let listener = tokio::net::TcpListener::bind(addr).await?;
 
     println!("🚀 Servidor rodando em http://localhost:3000");
-    println!("📍 Rotas disponíveis:");
-    println!("   POST http://localhost:3000/api/auth/register");
-    println!("   POST http://localhost:3000/api/auth/login");
-    println!("   GET  http://localhost:3000/api/me (protegida)");
-    println!("   GET  http://localhost:3000/api/admin (protegida, role ADMIN)");
 
     axum::serve(listener, app).await?;
 

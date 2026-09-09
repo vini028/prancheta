@@ -48,6 +48,11 @@ export const PedidoForm: React.FC<PedidoFormProps> = ({ onSuccess, pedido }) => 
     setItens(newItens);
   };
 
+  const resetForm = () => {
+    setFornecedorId('');
+    setItens([{ item: '', ean: '', quantidade: 1, valor_unitario: '' }]);
+  };
+
   const totalValor = itens.reduce((acc, item) => acc + (Number(item.valor_unitario) * Number(item.quantidade)), 0);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -76,6 +81,7 @@ export const PedidoForm: React.FC<PedidoFormProps> = ({ onSuccess, pedido }) => 
       } else {
         await createPedidoApi(payload);
         showToast('Pedido de compra registrado com sucesso.', 'success');
+        resetForm();
       }
       onSuccess();
     } catch (err: unknown) {
