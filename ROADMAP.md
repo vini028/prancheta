@@ -42,14 +42,23 @@ Este documento mapeia o desenvolvimento incremental do **Prancheta**, dividido e
 > **Foco:** Gestão de produtos no estoque e administração de usuários.
 
 ### Back-end (Rust/Axum/Diesel)
-- [ ] Migration e model para a tabela `produtos` (`id`, `nome`, `codigo_barras`, `preco`, `quantidade_estoque`).
-- [ ] Handlers REST para produtos: CRUD completo.
-- [ ] Rota administrativa: `PUT /users/:id/role` (para alteração de privilégios) e `DELETE /users/:id`.
+- [x] Migration e model para a tabela `produtos` (`id`, `nome`, `ean` UNIQUE, `preco`, `quantidade_estoque`) + índice `idx_produtos_ean`.
+- [x] Handlers REST para produtos: CRUD completo (`POST/GET /api/produtos`, `PUT/DELETE /api/produtos/:id` — escrita só ADMIN, leitura ADMIN/BUYER/SELLER).
+- [x] Rota administrativa: `PUT /users/:id/role` (para alteração de privilégios) e `DELETE /users/:id`. *(já existiam como `PATCH /api/admin/users/:id/role` e `DELETE /api/admin/users/:id`)*
+- [x] Fluxo de aprovação do pedido: `PATCH /api/pedidos-compra/:id/aprovar` (PENDENTE → APROVADO + `status_envio` = CONFIRMADO, só ADMIN), `/rejeitar` (→ REJEITADO, só ADMIN), `/cancelar` (→ CANCELADO a partir de APROVADO/COM_PROBLEMA, só ADMIN).
+- [x] Fluxo logístico: `PATCH /api/pedidos-compra/:id/status-envio` (BUYER dono ou ADMIN override) com máquina CONFIRMADO → ENVIADO → RECEBIDO → CONFERIDO → CONCLUIDO, exceção COM_PROBLEMA (+ `observacao_problema` obrigatória) e entrada em estoque transacional e idempotente na conclusão.
+- [x] Edição de pedido (`PUT /api/pedidos-compra/:id`) bloqueada fora de PENDENTE (409).
+- [x] Preços de compra/venda: `preco_compra` + `preco_venda` gerada no Postgres (`ROUND(preco_compra * 1.30, 2)` STORED) — migration `0004`, nunca dessincroniza.
+- [x] Conferência item a item: `quantidade_recebida`, `status_item` (PENDENTE/OK/PROBLEMA), `observacao_item` em `pedido_itens` (migration `0005`) + `PUT /api/pedidos-compra/:id/conferencia` (BUYER dono ou ADMIN, só em RECEBIDO, 409 fora disso, 400 p/ PROBLEMA sem observação).
+- [x] Regras de envio reforçadas: CONFERIDO exige conferência completa sem PROBLEMA (409); COM_PROBLEMA reaproveita observações da conferência; CONCLUIDO sobe ao estoque pela quantidade recebida (`quantidade_recebida ?? quantidade`).
 
 ### Front-end (React/Vite)
-- [ ] Tela de cadastro e manutenção do inventário de produtos.
-- [ ] Tabela com busca e filtro do estoque.
-- [ ] Painel de Administração de Usuários (para o Admin alterar Roles e remover cadastros).
+- [x] Tela de cadastro e manutenção do inventário de produtos (`/inventory`: `ProdutoForm` + edição em modal).
+- [x] Tabela com busca (nome/EAN) e filtro do estoque (`ProdutoTable`), com alerta de estoque baixo (< 5).
+- [x] Painel de Administração de Usuários (para o Admin alterar Roles e remover cadastros). *(já existia em `/users`)*
+- [x] Pedidos com colunas Aprovação + Envio, botões Aprovar/Rejeitar/Cancelar (ADMIN), stepper de envio + modal "Relatar problema" (BUYER dono), override de envio (ADMIN).
+- [x] Tabela de produtos com colunas "Preço de Compra" e "Preço de Venda" (+30%) lado a lado; form edita só o preço de compra (venda recalcula no banco).
+- [x] Tela de Conferência (`/compras/:id/conferencia`, botão "Conferir itens" em pedidos RECEBIDOS): qtd. recebida, seletor OK/Problema, observação obrigatória p/ Problema, "Salvar conferência" + "Confirmar conferência" (→ CONFERIDO, só sem Problema) / "Reportar problema no pedido" (→ COM_PROBLEMA).
 
 ### Entregáveis Ágeis
 - [ ] Gravação do vídeo com perfil `Admin` cadastrando produtos e alterando roles.

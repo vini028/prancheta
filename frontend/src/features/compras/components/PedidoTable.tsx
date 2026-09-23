@@ -1,9 +1,18 @@
 import React, { useMemo, useState, useEffect } from 'react';
-import { DataTable, Button, Badge, useToast, Modal } from '../../shared/ui';
+import { useNavigate } from 'react-router-dom';
+import { DataTable, Button, Badge, Input, useToast, Modal } from '../../shared/ui';
 import type { Column } from '../../shared/ui';
 import type { Pedido, PedidoItem } from '../api/comprasApi';
 import type { Fornecedor } from '../../fornecedores/api/fornecedoresApi';
-import { updatePedidoStatusApi, deletePedidoApi, getPedidoItensApi } from '../api/comprasApi';
+import {
+  deletePedidoApi,
+  getPedidoItensApi,
+  aprovarPedidoApi,
+  rejeitarPedidoApi,
+  cancelarPedidoApi,
+  atualizarStatusEnvioApi,
+} from '../api/comprasApi';
+import { useAuth } from '../../auth/hooks/auth.hook';
 import { PedidoForm } from './PedidoForm';
 import styles from './PedidoTable.module.css';
 
@@ -14,17 +23,50 @@ interface PedidoTableProps {
   onRefresh: () => void;
 }
 
-const STATUS_LABEL: Record<string, string> = {
+const getErrorMessage = (error: unknown, fallback: string) =>
+  error instanceof Error ? error.message : fallback;
+
+const APROVACAO_LABEL: Record<string, string> = {
   PENDENTE: 'Pendente',
   APROVADO: 'Aprovado',
+  REJEITADO: 'Rejeitado',
   CANCELADO: 'Cancelado',
 };
 
-const STATUS_TONE: Record<string, 'warning' | 'positive' | 'danger' | 'neutral'> = {
+const APROVACAO_TONE: Record<string, 'warning' | 'positive' | 'danger' | 'neutral'> = {
   PENDENTE: 'warning',
   APROVADO: 'positive',
+  REJEITADO: 'danger',
   CANCELADO: 'danger',
 };
+
+const ENVIO_LABEL: Record<string, string> = {
+  CONFIRMADO: 'Confirmado',
+  ENVIADO: 'Enviado',
+  RECEBIDO: 'Recebido',
+  CONFERIDO: 'Conferido',
+  CONCLUIDO: 'Concluído',
+  COM_PROBLEMA: 'Com problema',
+};
+
+const ENVIO_TONE: Record<string, 'positive' | 'warning' | 'danger' | 'info' | 'neutral'> = {
+  CONFIRMADO: 'info',
+  ENVIADO: 'info',
+  RECEBIDO: 'warning',
+  CONFERIDO: 'warning',
+  CONCLUIDO: 'positive',
+  COM_PROBLEMA: 'danger',
+};
+
+/** Próxima etapa do fluxo feliz: CONFIRMADO -> ENVIADO -> RECEBIDO -> CONFERIDO -> CONCLUIDO */
+const PROXIMA_ETAPA: Record<string, string> = {
+  CONFIRMADO: 'ENVIADO',
+  ENVIADO: 'RECEBIDO',
+  RECEBIDO: 'CONFERIDO',
+  CONFERIDO: 'CONCLUIDO',
+};
+
+const ETAPAS_COM_PROBLEMA = ['CONFIRMADO', 'ENVIADO', 'RECEBIDO', 'CONFERIDO'];
 
 const formatDateTime = (value: string) =>
   new Date(value).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' });
@@ -45,10 +87,62 @@ const TrashIcon: React.FC = () => (
   </svg>
 );
 
+const CheckIcon: React.FC = () => (
+  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2">
+    <path d="M20 6 9 17l-5-5" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+
+const XIcon: React.FC = () => (
+  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2">
+    <path d="M18 6 6 18M6 6l12 12" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+
+const BanIcon: React.FC = () => (
+  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2">
+    <circle cx="12" cy="12" r="10" />
+    <path d="m4.9 4.9 14.2 14.2" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+
+const ArrowRightIcon: React.FC = () => (
+  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2">
+    <path d="M5 12h14m-6-6 6 6-6 6" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+
+const AlertIcon: React.FC = () => (
+  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2">
+    <path d="m10.3 3.9-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.7-3.1l-8-14a2 2 0 0 0-3.4 0Z" strokeLinecap="round" strokeLinejoin="round" />
+    <path d="M12 9v4m0 4h.01" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+
+const RetryIcon: React.FC = () => (
+  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2">
+    <path d="M3 12a9 9 0 1 0 3-6.7L3 8" strokeLinecap="round" strokeLinejoin="round" />
+    <path d="M3 3v5h5" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+
+const ClipboardCheckIcon: React.FC = () => (
+  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2">
+    <rect width="8" height="4" x="8" y="2" rx="1" ry="1" />
+    <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" strokeLinecap="round" strokeLinejoin="round" />
+    <path d="m9 14 2 2 4-4" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+
 export const PedidoTable: React.FC<PedidoTableProps> = ({ pedidos, fornecedores, loading, onRefresh }) => {
   const { showToast } = useToast();
+  const { user, isAdmin } = useAuth();
+  const navigate = useNavigate();
   const [selectedPedido, setSelectedPedido] = useState<Pedido | null>(null);
   const [pedidoToEdit, setPedidoToEdit] = useState<Pedido | null>(null);
+  const [pedidoProblema, setPedidoProblema] = useState<Pedido | null>(null);
+  const [observacao, setObservacao] = useState('');
+  const [savingProblema, setSavingProblema] = useState(false);
   const [itens, setItens] = useState<PedidoItem[]>([]);
   const [loadingItens, setLoadingItens] = useState(false);
 
@@ -98,13 +192,86 @@ export const PedidoTable: React.FC<PedidoTableProps> = ({ pedidos, fornecedores,
     [itens]
   );
 
-  const handleStatusChange = async (id: number, status: string) => {
+  const isOwner = (p: Pedido) => user?.id === p.comprador_id;
+  /** Quem pode mexer no envio: ADMIN (override) ou BUYER dono do pedido. */
+  const canManageEnvio = (p: Pedido) => isAdmin || isOwner(p);
+
+  const handleAprovar = async (id: number) => {
     try {
-      await updatePedidoStatusApi(id, { status });
-      showToast(`Pedido marcado como ${status}.`, 'success');
+      await aprovarPedidoApi(id);
+      showToast('Pedido aprovado e confirmado para envio.', 'success');
       onRefresh();
-    } catch {
-      showToast('Erro ao atualizar status.', 'error');
+    } catch (err: unknown) {
+      showToast(getErrorMessage(err, 'Erro ao aprovar pedido.'), 'error');
+    }
+  };
+
+  const handleRejeitar = async (id: number) => {
+    if (!confirm('Deseja realmente rejeitar este pedido?')) return;
+    try {
+      await rejeitarPedidoApi(id);
+      showToast('Pedido rejeitado.', 'success');
+      onRefresh();
+    } catch (err: unknown) {
+      showToast(getErrorMessage(err, 'Erro ao rejeitar pedido.'), 'error');
+    }
+  };
+
+  const handleCancelar = async (id: number) => {
+    if (!confirm('Deseja realmente cancelar este pedido?')) return;
+    try {
+      await cancelarPedidoApi(id);
+      showToast('Pedido cancelado.', 'success');
+      onRefresh();
+    } catch (err: unknown) {
+      showToast(getErrorMessage(err, 'Erro ao cancelar pedido.'), 'error');
+    }
+  };
+
+  const handleAvancarEnvio = async (p: Pedido) => {
+    const proximo = p.status_envio ? PROXIMA_ETAPA[p.status_envio] : undefined;
+    if (!proximo) return;
+    const concluir = proximo === 'CONCLUIDO';
+    if (concluir && !confirm('Concluir o pedido? Os itens subirão para o estoque.')) return;
+    try {
+      await atualizarStatusEnvioApi(p.id, proximo);
+      showToast(
+        concluir ? 'Pedido concluído e estoque atualizado.' : `Pedido marcado como ${ENVIO_LABEL[proximo]}.`,
+        'success',
+      );
+      onRefresh();
+    } catch (err: unknown) {
+      showToast(getErrorMessage(err, 'Erro ao atualizar envio.'), 'error');
+    }
+  };
+
+  const handleRelatarProblema = async () => {
+    if (!pedidoProblema) return;
+    if (!observacao.trim()) {
+      showToast('Descreva o problema (avaria, extravio, divergência...).', 'error');
+      return;
+    }
+    setSavingProblema(true);
+    try {
+      await atualizarStatusEnvioApi(pedidoProblema.id, 'COM_PROBLEMA', observacao.trim());
+      showToast('Problema registrado no pedido.', 'success');
+      setPedidoProblema(null);
+      setObservacao('');
+      onRefresh();
+    } catch (err: unknown) {
+      showToast(getErrorMessage(err, 'Erro ao registrar problema.'), 'error');
+    } finally {
+      setSavingProblema(false);
+    }
+  };
+
+  const handleRetomarEnvio = async (p: Pedido, destino: string) => {
+    try {
+      await atualizarStatusEnvioApi(p.id, destino);
+      showToast(`Pedido retomado em ${ENVIO_LABEL[destino]}.`, 'success');
+      onRefresh();
+    } catch (err: unknown) {
+      showToast(getErrorMessage(err, 'Erro ao retomar envio.'), 'error');
     }
   };
 
@@ -114,8 +281,8 @@ export const PedidoTable: React.FC<PedidoTableProps> = ({ pedidos, fornecedores,
       await deletePedidoApi(id);
       showToast('Pedido excluído com sucesso.', 'success');
       onRefresh();
-    } catch {
-      showToast('Erro ao excluir pedido.', 'error');
+    } catch (err: unknown) {
+      showToast(getErrorMessage(err, 'Erro ao excluir pedido.'), 'error');
     }
   };
 
@@ -125,43 +292,106 @@ export const PedidoTable: React.FC<PedidoTableProps> = ({ pedidos, fornecedores,
     { key: 'comprador_nome', header: 'Comprador', render: (p) => p.comprador_nome },
     {
       key: 'status',
-      header: 'Status',
+      header: 'Aprovação',
       render: (p) => (
-        <select value={p.status} onChange={(e) => handleStatusChange(p.id, e.target.value)} style={{ padding: '4px', borderRadius: '4px' }}>
-          <option value="PENDENTE">Pendente</option>
-          <option value="APROVADO">Aprovado</option>
-          <option value="CANCELADO">Cancelado</option>
-        </select>
-      )
+        <Badge tone={APROVACAO_TONE[p.status] ?? 'neutral'}>
+          {APROVACAO_LABEL[p.status] ?? p.status}
+        </Badge>
+      ),
+    },
+    {
+      key: 'status_envio',
+      header: 'Envio',
+      render: (p) =>
+        p.status_envio ? (
+          <Badge tone={ENVIO_TONE[p.status_envio] ?? 'neutral'}>
+            {ENVIO_LABEL[p.status_envio] ?? p.status_envio}
+          </Badge>
+        ) : (
+          <span style={{ color: 'var(--text-muted)' }}>—</span>
+        ),
     },
     { key: 'created_at', header: 'Data Criação', render: (p) => formatDateTime(p.created_at) },
     {
       key: 'actions',
       header: 'Ações',
-      render: (p) => (
-        <div style={{ display: 'flex', gap: '4px' }}>
-          <Button
-            size="sm"
-            className={styles.iconButton}
-            onClick={() => setSelectedPedido(p)}
-            title="Visualizar itens do pedido"
-            aria-label="Visualizar itens do pedido"
-          >
-            <EyeIcon />
-          </Button>
-          <Button
-            size="sm"
-            variant="danger"
-            className={styles.iconButton}
-            onClick={() => handleDelete(p.id)}
-            title="Excluir pedido"
-            aria-label="Excluir pedido"
-          >
-            <TrashIcon />
-          </Button>
-        </div>
-      )
-    }
+      render: (p) => {
+        const proximo = p.status_envio ? PROXIMA_ETAPA[p.status_envio] : undefined;
+        const podeAvancar = p.status === 'APROVADO' && proximo && canManageEnvio(p);
+        const podeRelatar = p.status === 'APROVADO' && p.status_envio && ETAPAS_COM_PROBLEMA.includes(p.status_envio) && canManageEnvio(p);
+        const podeRetomar = p.status === 'APROVADO' && p.status_envio === 'COM_PROBLEMA' && canManageEnvio(p);
+        const podeConferir = p.status === 'APROVADO' && p.status_envio === 'RECEBIDO' && canManageEnvio(p);
+        // Pedido concluído já subiu ao estoque: imutável (sem cancelar nem excluir).
+        const concluido = p.status_envio === 'CONCLUIDO';
+
+        return (
+          <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+            {isAdmin && p.status === 'PENDENTE' && (
+              <>
+                <Button size="sm" variant="success" className={styles.iconButton} onClick={() => handleAprovar(p.id)} title="Aprovar pedido" aria-label="Aprovar pedido">
+                  <CheckIcon />
+                </Button>
+                <Button size="sm" variant="secondary" className={styles.iconButton} onClick={() => handleRejeitar(p.id)} title="Rejeitar pedido" aria-label="Rejeitar pedido">
+                  <XIcon />
+                </Button>
+              </>
+            )}
+            {isAdmin && p.status === 'APROVADO' && !concluido && (
+              <Button size="sm" variant="danger" className={styles.iconButton} onClick={() => handleCancelar(p.id)} title="Cancelar pedido" aria-label="Cancelar pedido">
+                <BanIcon />
+              </Button>
+            )}
+            {podeConferir && (
+              <Button size="sm" variant="secondary" className={styles.iconButton} onClick={() => navigate(`/compras/${p.id}/conferencia`)} title="Conferir itens recebidos" aria-label="Conferir itens recebidos">
+                <ClipboardCheckIcon />
+              </Button>
+            )}
+            {podeAvancar && (
+              <Button size="sm" variant="secondary" className={styles.iconButton} onClick={() => handleAvancarEnvio(p)} title={`Avançar para ${ENVIO_LABEL[proximo!]}`} aria-label={`Avançar para ${ENVIO_LABEL[proximo!]}`}>
+                <ArrowRightIcon />
+              </Button>
+            )}
+            {podeRelatar && (
+              <Button
+                size="sm"
+                variant="danger"
+                className={styles.iconButton}
+                onClick={() => { setPedidoProblema(p); setObservacao(''); }}
+                title="Relatar problema no envio"
+                aria-label="Relatar problema no envio"
+              >
+                <AlertIcon />
+              </Button>
+            )}
+            {podeRetomar && (
+              <Button size="sm" variant="secondary" className={styles.iconButton} onClick={() => handleRetomarEnvio(p, 'ENVIADO')} title="Retomar envio após problema" aria-label="Retomar envio após problema">
+                <RetryIcon />
+              </Button>
+            )}
+            <Button
+              size="sm"
+              className={styles.iconButton}
+              onClick={() => setSelectedPedido(p)}
+              title="Visualizar itens do pedido"
+              aria-label="Visualizar itens do pedido"
+            >
+              <EyeIcon />
+            </Button>
+            <Button
+              size="sm"
+              variant="danger"
+              className={styles.iconButton}
+              onClick={() => handleDelete(p.id)}
+              title={concluido ? 'Pedidos concluídos não podem ser excluídos' : 'Excluir pedido'}
+              aria-label="Excluir pedido"
+              disabled={concluido}
+            >
+              <TrashIcon />
+            </Button>
+          </div>
+        );
+      },
+    },
   ];
 
   return (
@@ -197,13 +427,31 @@ export const PedidoTable: React.FC<PedidoTableProps> = ({ pedidos, fornecedores,
                 </span>
               </div>
               <div className={styles.detailField}>
-                <span className={styles.detailLabel}>Status</span>
+                <span className={styles.detailLabel}>Aprovação</span>
                 <span>
-                  <Badge tone={STATUS_TONE[selectedPedido.status] ?? 'neutral'}>
-                    {STATUS_LABEL[selectedPedido.status] ?? selectedPedido.status}
+                  <Badge tone={APROVACAO_TONE[selectedPedido.status] ?? 'neutral'}>
+                    {APROVACAO_LABEL[selectedPedido.status] ?? selectedPedido.status}
                   </Badge>
                 </span>
               </div>
+              <div className={styles.detailField}>
+                <span className={styles.detailLabel}>Envio</span>
+                <span>
+                  {selectedPedido.status_envio ? (
+                    <Badge tone={ENVIO_TONE[selectedPedido.status_envio] ?? 'neutral'}>
+                      {ENVIO_LABEL[selectedPedido.status_envio] ?? selectedPedido.status_envio}
+                    </Badge>
+                  ) : (
+                    '—'
+                  )}
+                </span>
+              </div>
+              {selectedPedido.observacao_problema && (
+                <div className={styles.detailField} style={{ gridColumn: '1 / -1' }}>
+                  <span className={styles.detailLabel}>Problema relatado</span>
+                  <span className={styles.detailValue}>{selectedPedido.observacao_problema}</span>
+                </div>
+              )}
               <div className={styles.detailField}>
                 <span className={styles.detailLabel}>Criado em</span>
                 <span className={styles.detailValue}>{formatDateTime(selectedPedido.created_at)}</span>
@@ -269,6 +517,28 @@ export const PedidoTable: React.FC<PedidoTableProps> = ({ pedidos, fornecedores,
             </div>
           </div>
         )}
+      </Modal>
+
+      {/* Modal para relatar problema no envio */}
+      <Modal isOpen={!!pedidoProblema} onClose={() => setPedidoProblema(null)} title={`Relatar problema — Pedido #${pedidoProblema?.id}`}>
+        <p style={{ marginBottom: 'var(--space-3)', fontSize: 'var(--text-sm)' }}>
+          Descreva o problema (avaria, extravio, divergência de quantidade/EAN...). O pedido ficará com status de envio COM_PROBLEMA.
+        </p>
+        <Input
+          label="Observação do problema"
+          value={observacao}
+          onChange={(e) => setObservacao(e.target.value)}
+          placeholder="Ex.: 2 unidades chegaram avariadas"
+          fullWidth
+        />
+        <div style={{ display: 'flex', gap: '8px', marginTop: 'var(--space-4)' }}>
+          <Button variant="danger" onClick={handleRelatarProblema} isLoading={savingProblema} loadingText="Salvando...">
+            Confirmar problema
+          </Button>
+          <Button variant="secondary" onClick={() => setPedidoProblema(null)}>
+            Voltar
+          </Button>
+        </div>
       </Modal>
 
       <Modal isOpen={!!pedidoToEdit} onClose={() => setPedidoToEdit(null)} title="Editar pedido">

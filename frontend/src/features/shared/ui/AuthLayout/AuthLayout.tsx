@@ -42,7 +42,7 @@ export const AuthLayout: React.FC<AuthLayoutProps> = ({ title, subtitle, childre
       </p>
       <ul className={styles.moduleList}>
         <li><span className={styles.dot} data-tone="done" />Gestão de Fornecedores e Pedidos de Compra (AC1)</li>
-        <li><span className={styles.dot} data-tone="soon" />Produtos, Gestão de Usuários (AC2)</li>
+        <li><span className={styles.dot} data-tone="done" />Produtos, Gestão de Usuários (AC2)</li>
         <li><span className={styles.dot} data-tone="soon" />Clientes e PDV/Vendas (AC3)</li>
         <li><span className={styles.dot} data-tone="soon" />Prova - Avaliação Final</li>
       </ul>

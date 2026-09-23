@@ -12,6 +12,8 @@ pub struct PedidoCompra {
     pub fornecedor_id: i32,
     pub status: String,
     pub comprador_id: Uuid,
+    pub status_envio: Option<String>,
+    pub observacao_problema: Option<String>,
     pub created_at: NaiveDateTime,
     pub updated_at: NaiveDateTime,
 }
@@ -23,6 +25,8 @@ pub struct PedidoCompraResponse {
     pub status: String,
     pub comprador_id: Uuid,
     pub comprador_nome: String,
+    pub status_envio: Option<String>,
+    pub observacao_problema: Option<String>,
     pub created_at: NaiveDateTime,
     pub updated_at: NaiveDateTime,
 }
@@ -44,6 +48,9 @@ pub struct PedidoItem {
     pub ean: Option<String>,
     pub quantidade: i32,
     pub valor_unitario: BigDecimal,
+    pub quantidade_recebida: Option<i32>,
+    pub status_item: String,
+    pub observacao_item: Option<String>,
     pub created_at: NaiveDateTime,
     pub updated_at: NaiveDateTime,
 }
@@ -82,4 +89,23 @@ pub struct UpdatePedidoInput {
 #[derive(Deserialize, Debug)]
 pub struct UpdatePedidoStatusInput {
     pub status: String,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct UpdateStatusEnvioInput {
+    pub status_envio: String,
+    pub observacao_problema: Option<String>,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct ConferenciaItemInput {
+    pub item_id: i32,
+    pub quantidade_recebida: i32,
+    pub status_item: String,
+    pub observacao_item: Option<String>,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct ConferenciaPedidoInput {
+    pub itens: Vec<ConferenciaItemInput>,
 }

@@ -37,5 +37,14 @@ pub fn create_router() -> Router<Arc<DbPool>> {
         .route("/api/pedidos-compra", post(handlers::pedido_handler::create_pedido_handler).get(handlers::pedido_handler::list_pedidos_handler))
         .route("/api/pedidos-compra/:id", put(handlers::pedido_handler::update_pedido_handler).delete(handlers::pedido_handler::delete_pedido_handler))
         .route("/api/pedidos-compra/:id/status", patch(handlers::pedido_handler::update_pedido_status_handler))
+        .route("/api/pedidos-compra/:id/aprovar", patch(handlers::pedido_handler::aprovar_pedido_handler))
+        .route("/api/pedidos-compra/:id/rejeitar", patch(handlers::pedido_handler::rejeitar_pedido_handler))
+        .route("/api/pedidos-compra/:id/cancelar", patch(handlers::pedido_handler::cancelar_pedido_handler))
+        .route("/api/pedidos-compra/:id/status-envio", patch(handlers::pedido_handler::update_status_envio_handler))
+        .route("/api/pedidos-compra/:id/conferencia", put(handlers::pedido_handler::salvar_conferencia_handler))
         .route("/api/pedidos-compra/:id/itens", get(handlers::pedido_handler::get_pedido_itens_handler))
+
+        // Rotas de produtos/inventário (leitura: ADMIN, BUYER, SELLER — escrita: apenas ADMIN)
+        .route("/api/produtos", post(handlers::produto_handler::create_produto_handler).get(handlers::produto_handler::list_produtos_handler))
+        .route("/api/produtos/:id", put(handlers::produto_handler::update_produto_handler).delete(handlers::produto_handler::delete_produto_handler))
 }

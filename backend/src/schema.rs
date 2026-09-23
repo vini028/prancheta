@@ -36,6 +36,9 @@ diesel::table! {
         #[max_length = 20]
         status -> Varchar,
         comprador_id -> Uuid,
+        #[max_length = 20]
+        status_envio -> Nullable<Varchar>,
+        observacao_problema -> Nullable<Text>,
         created_at -> Timestamp,
         updated_at -> Timestamp,
     }
@@ -51,6 +54,25 @@ diesel::table! {
         ean -> Nullable<Varchar>,
         quantidade -> Int4,
         valor_unitario -> Numeric,
+        quantidade_recebida -> Nullable<Int4>,
+        #[max_length = 20]
+        status_item -> Varchar,
+        observacao_item -> Nullable<Text>,
+        created_at -> Timestamp,
+        updated_at -> Timestamp,
+    }
+}
+
+diesel::table! {
+    produtos (id) {
+        id -> Int4,
+        #[max_length = 150]
+        nome -> Varchar,
+        #[max_length = 13]
+        ean -> Varchar,
+        preco_compra -> Numeric,
+        preco_venda -> Numeric,
+        quantidade_estoque -> Int4,
         created_at -> Timestamp,
         updated_at -> Timestamp,
     }
@@ -65,4 +87,5 @@ diesel::allow_tables_to_appear_in_same_query!(
     fornecedores,
     pedidos_compra,
     pedido_itens,
+    produtos,
 );

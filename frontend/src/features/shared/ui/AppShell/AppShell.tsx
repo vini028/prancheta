@@ -29,7 +29,7 @@ const NAV_ITEMS: NavItem[] = [
   { to: '/', label: 'Painel', icon: icon('M4 13h6V4H4v9Zm0 7h6v-5H4v5Zm10 0h6V11h-6v9Zm0-16v5h6V4h-6Z') },
   { to: '/suppliers', label: 'Fornecedores', icon: icon('M10 17h4M5 17a2 2 0 1 0 4 0 2 2 0 0 0-4 0Zm10 0a2 2 0 1 0 4 0 2 2 0 0 0-4 0ZM3 9l2-4h10l2 4v6H3V9Zm14 0h4l2 3v3h-6V9Z'), roles: ['ADMIN', 'BUYER'] },
   { to: '/purchases', label: 'Pedidos', icon: icon('M3 3h2l2.4 12.2a2 2 0 0 0 2 1.8h7.2a2 2 0 0 0 2-1.6L21 8H6'), roles: ['ADMIN', 'BUYER'] },
-  { to: '/products', label: 'Produtos', icon: icon('M20 7 12 3 4 7m16 0-8 4m8-4v10l-8 4M4 7l8 4m-8-4v10l8 4m0-10v10'), comingInPhase: 'Fase 2 · 08/11' },
+  { to: '/inventory', label: 'Produtos', icon: icon('M20 7 12 3 4 7m16 0-8 4m8-4v10l-8 4M4 7l8 4m-8-4v10l8 4m0-10v10'), roles: ['ADMIN', 'BUYER', 'SELLER'] },
   { to: '/clients', label: 'Clientes', icon: icon('M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm13 10v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75'), roles: ['ADMIN', 'SELLER'], comingInPhase: 'Fase 3 · 01/12' },
   { to: '/sales', label: 'Vendas', icon: icon('M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6'), roles: ['ADMIN', 'SELLER'], comingInPhase: 'Fase 3 · 01/12' },
   { to: '/users', label: 'Usuários', icon: icon('M17 20v-1a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v1m18 0v-1a4 4 0 0 0-3-3.87M14 4.13a4 4 0 0 1 0 7.75M11 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0Z'), roles: ['ADMIN'] },

@@ -7,6 +7,8 @@ import { UsersManagementPage } from '../features/users/pages/UsersManagement.pag
 import { ChangePasswordPage } from '../features/users/pages/ChangePassword.page';
 import { SuppliersPage } from '../features/fornecedores/pages/Suppliers.page';
 import { PurchasesPage } from '../features/compras/pages/Purchases.page';
+import { ConferenciaPage } from '../features/compras/pages/Conferencia.page';
+import { InventoryPage } from '../features/produtos/pages/Inventory.page';
 import { PrivateRoute } from './PrivateRoute';
 
 export const AppRoutes: React.FC = () => {
@@ -26,6 +28,12 @@ export const AppRoutes: React.FC = () => {
       <Route element={<PrivateRoute allowedRoles={['ADMIN', 'BUYER']} />}>
         <Route path="/suppliers" element={<SuppliersPage />} />
         <Route path="/purchases" element={<PurchasesPage />} />
+        <Route path="/compras/:id/conferencia" element={<ConferenciaPage />} />
+      </Route>
+
+      {/* Inventário: leitura para ADMIN, BUYER e SELLER; escrita só ADMIN (na UI) */}
+      <Route element={<PrivateRoute allowedRoles={['ADMIN', 'BUYER', 'SELLER']} />}>
+        <Route path="/inventory" element={<InventoryPage />} />
       </Route>
 
       {/* Rota Protegida Exclusiva (Apenas ADMIN) */}
