@@ -146,6 +146,14 @@ pub async fn login_handler(
         );
     }
 
+    // 2.1. Bloquear login de contas desativadas
+    if !user.is_active {
+        return (
+            StatusCode::FORBIDDEN,
+            Json(json!({ "error": "Conta desativada. Entre em contato com o administrador." })),
+        );
+    }
+
     // 3. Gerar JWT
     let token = match create_jwt(user.id, &user.name, &user.email, &user.role) {
         Ok(t) => t,

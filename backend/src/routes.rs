@@ -27,6 +27,10 @@ pub fn create_router() -> Router<Arc<DbPool>> {
             patch(handlers::user_handler::update_role_handler),
         )
         .route(
+            "/api/admin/users/:id/active",
+            patch(handlers::user_handler::toggle_user_active_handler),
+        )
+        .route(
             "/api/admin/users/:id",
             delete(handlers::user_handler::delete_user_handler),
         )

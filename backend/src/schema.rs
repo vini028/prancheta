@@ -10,6 +10,7 @@ diesel::table! {
         password_hash -> Varchar,
         #[max_length = 20]
         role -> Varchar,
+        is_active -> Bool,
         created_at -> Timestamp,
         updated_at -> Timestamp,
     }

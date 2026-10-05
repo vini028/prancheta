@@ -12,6 +12,7 @@ pub struct User {
     #[serde(skip_serializing)] // Omite a hash ao converter para JSON no front-end
     pub password_hash: String,
     pub role: String,
+    pub is_active: bool,
     pub created_at: NaiveDateTime,
     pub updated_at: NaiveDateTime,
 }
@@ -30,4 +31,9 @@ pub struct NewUser {
 pub struct UpdatePasswordRequest {
     pub current_password: String,
     pub new_password: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ToggleUserActiveRequest {
+    pub is_active: bool,
 }

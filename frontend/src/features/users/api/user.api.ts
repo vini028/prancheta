@@ -21,6 +21,14 @@ export const deleteUserApi = async (id: string): Promise<void> => {
   });
 };
 
+// 🌟 NOVO: Ativar/Desativar usuário sem excluir (Apenas Admin)
+export const toggleUserActiveStatus = async (userId: string, isActive: boolean): Promise<User> => {
+  return apiFetch<User>(`/admin/users/${userId}/active`, {
+    method: 'PATCH',
+    body: JSON.stringify({ is_active: isActive }),
+  });
+};
+
 // 🌟 NOVO: Alterar própria senha (Disponível para qualquer usuário autenticado)
 export const changePasswordApi = async (dto: ChangePasswordDto): Promise<{ message: string }> => {
   return apiFetch<{ message: string }>('/me/password', {

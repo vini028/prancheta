@@ -43,6 +43,7 @@
 .actionsCell {
   text-align: right;
   width: 1%;
+  white-space: nowrap;
 }
 
 .table tbody td {
@@ -58,12 +59,6 @@
 
 .table tbody tr:hover td {
   background: var(--surface-sunken);
-}
-
-.actionsCell {
-  display: flex;
-  gap: var(--space-2);
-  justify-content: flex-end;
 }
 
 .emptyState {

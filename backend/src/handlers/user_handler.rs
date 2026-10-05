@@ -17,7 +17,7 @@ use crate::{
         validation::validate_password
     }, 
     db::{self, DbPool}, 
-    models::user_model::{UpdatePasswordRequest, User}, 
+    models::user_model::{ToggleUserActiveRequest, UpdatePasswordRequest, User}, 
     schema::users::dsl::*,
 };
 
@@ -38,6 +38,7 @@ pub struct UserResponse {
     pub name: String,
     pub email: String,
     pub role: String,
+    pub is_active: bool,
     pub created_at: chrono::NaiveDateTime,
 }
 
@@ -48,6 +49,7 @@ impl From<User> for UserResponse {
             name: user.name,
             email: user.email,
             role: user.role,
+            is_active: user.is_active,
             created_at: user.created_at,
         }
     }
@@ -140,6 +142,56 @@ pub async fn update_role_handler(
             (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(json!({ "error": "Erro ao atualizar role" })),
+            )
+        }
+    }
+}
+
+// ------------------------
+//  Handler: Ativar/Desativar usuário (apenas ADMIN)
+//  PATCH /api/admin/users/:id/active
+// ------------------------
+pub async fn toggle_user_active_handler(
+    auth_user: AuthenticatedUser,
+    State(pool): State<Arc<DbPool>>,
+    Path(user_id): Path<Uuid>,
+    Json(payload): Json<ToggleUserActiveRequest>,
+) -> impl IntoResponse {
+    // Verifica se é ADMIN
+    if auth_user.0.role != "ADMIN" {
+        return (
+            StatusCode::FORBIDDEN,
+            Json(json!({ "error": "Acesso negado: requer role ADMIN" })),
+        );
+    }
+
+    // Impede que o próprio ADMIN desative a si mesmo
+    if auth_user.0.sub == user_id && !payload.is_active {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!({ "error": "Não é possível desativar sua própria conta" })),
+        );
+    }
+
+    let mut conn = db::get_connection(&pool);
+
+    match diesel::update(users.filter(id.eq(user_id)))
+        .set(is_active.eq(payload.is_active))
+        .returning(User::as_returning())
+        .get_result::<User>(&mut conn)
+    {
+        Ok(updated_user) => {
+            let response = UserResponse::from(updated_user);
+            (StatusCode::OK, Json(json!(response)))
+        }
+        Err(diesel::NotFound) => {
+            (StatusCode::NOT_FOUND, Json(json!({ "error": "Usuário não encontrado" })))
+        }
+        Err(e) => {
+            eprintln!("Erro ao atualizar status ativo: {}", e);
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({ "error": "Erro ao atualizar status do usuário" })),
             )
         }
     }
