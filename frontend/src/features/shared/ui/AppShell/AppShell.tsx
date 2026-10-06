@@ -32,6 +32,7 @@ const NAV_ITEMS: NavItem[] = [
   { to: '/inventory', label: 'Produtos', icon: icon('M20 7 12 3 4 7m16 0-8 4m8-4v10l-8 4M4 7l8 4m-8-4v10l8 4m0-10v10'), roles: ['ADMIN', 'BUYER', 'SELLER'] },
   { to: '/clientes', label: 'Clientes', icon: icon('M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm13 10v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75'), roles: ['ADMIN', 'SELLER'] },
   { to: '/pdv', label: 'PDV', icon: icon('M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6'), roles: ['ADMIN', 'SELLER'] },
+  { to: '/vendas', label: 'Vendas', icon: icon('M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01'), roles: ['ADMIN', 'SELLER'] },
   { to: '/users', label: 'Usuários', icon: icon('M17 20v-1a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v1m18 0v-1a4 4 0 0 0-3-3.87M14 4.13a4 4 0 0 1 0 7.75M11 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0Z'), roles: ['ADMIN'] },
 ];
 

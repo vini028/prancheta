@@ -16,7 +16,7 @@ use crate::{
         NewItemVenda, NewVenda, Venda,
         DESCONTO_CLIENTE_PCT, DESCONTO_PAGAMENTO_PCT, METODOS_PAGAMENTO_VALIDOS,
     },
-    schema::{clientes, itens_venda, produtos, vendas},
+    schema::{clientes, itens_venda, produtos, vendas, users},
 };
 
 /// Falha de negócio dentro da transação de checkout (gera rollback).
@@ -76,16 +76,20 @@ pub async fn checkout_venda_handler(
 
     let resultado = conn.transaction::<CheckoutVendaResponse, CheckoutFail, _>(|conn| {
         // Cliente informado precisa existir (None = não identificado, sem desconto).
-        if let Some(cliente_id) = payload.cliente_id {
-            clientes::table
-                .find(cliente_id)
-                .select(clientes::id)
-                .first::<i32>(conn)
-                .map_err(|e| match e {
-                    diesel::result::Error::NotFound => negocio(StatusCode::UNPROCESSABLE_ENTITY, "Cliente não encontrado."),
-                    outro => CheckoutFail::Diesel(outro),
-                })?;
-        }
+        // O nome já vem daqui para compor a resposta.
+        let cliente_nome: Option<String> = match payload.cliente_id {
+            Some(cliente_id) => Some(
+                clientes::table
+                    .find(cliente_id)
+                    .select(clientes::nome)
+                    .first::<String>(conn)
+                    .map_err(|e| match e {
+                        diesel::result::Error::NotFound => negocio(StatusCode::UNPROCESSABLE_ENTITY, "Cliente não encontrado."),
+                        outro => CheckoutFail::Diesel(outro),
+                    })?,
+            ),
+            None => None,
+        };
 
         // Agrega quantidades por produto (o carrinho pode repetir o mesmo id)
         // e trava as linhas em ordem crescente de id (anti-deadlock).
@@ -203,7 +207,10 @@ pub async fn checkout_venda_handler(
         Ok(CheckoutVendaResponse {
             id: venda.id,
             cliente_id: venda.cliente_id,
+            cliente_nome,
             vendedor_id: venda.vendedor_id,
+            // Nome do vendedor direto do JWT: sem query extra no checkout.
+            vendedor_nome: user.0.name.clone(),
             metodo_pagamento: venda.metodo_pagamento,
             subtotal,
             desconto_total,
@@ -222,7 +229,8 @@ pub async fn checkout_venda_handler(
     }
 }
 
-/// GET /api/vendas — lista vendas com nome do cliente (ADMIN ou SELLER).
+/// GET /api/vendas — ADMIN vê tudo; SELLER vê só as próprias.
+/// BUYER é barrado com 403 pelo `require_role`.
 pub async fn list_vendas_handler(
     State(pool): State<Arc<DbPool>>,
     user: AuthenticatedUser,
@@ -233,19 +241,26 @@ pub async fn list_vendas_handler(
 
     let mut conn = pool.get().expect("Erro ao obter conexão do pool");
 
-    let lista = vendas::table
+    let mut query = vendas::table
+        .inner_join(users::table)
         .left_join(clientes::table)
-        .select((Venda::as_select(), clientes::nome.nullable()))
+        .select((Venda::as_select(), users::name, clientes::nome.nullable()))
         .order(vendas::id.desc())
-        .load::<(Venda, Option<String>)>(&mut conn);
+        .into_boxed();
 
-    match lista {
+    // Vendedor só lista o que ele mesmo vendeu (RBAC por ownership).
+    if user.0.role == "SELLER" {
+        query = query.filter(vendas::vendedor_id.eq(user.0.sub));
+    }
+
+    match query.load::<(Venda, String, Option<String>)>(&mut conn) {
         Ok(lista) => {
-            let resp: Vec<serde_json::Value> = lista.into_iter().map(|(v, nome)| serde_json::json!({
+            let resp: Vec<serde_json::Value> = lista.into_iter().map(|(v, vendedor_nome, cliente_nome)| serde_json::json!({
                 "id": v.id,
                 "cliente_id": v.cliente_id,
-                "cliente_nome": nome,
+                "cliente_nome": cliente_nome,
                 "vendedor_id": v.vendedor_id,
+                "vendedor_nome": vendedor_nome,
                 "metodo_pagamento": v.metodo_pagamento,
                 "subtotal": v.subtotal,
                 "desconto_total": v.desconto_total,
@@ -259,7 +274,9 @@ pub async fn list_vendas_handler(
     }
 }
 
-/// GET /api/vendas/:id — detalhe com itens (ADMIN ou SELLER).
+/// GET /api/vendas/:id — detalhe com itens.
+/// SELLER só visualiza as próprias vendas (403 nas de outros vendedores);
+/// BUYER é barrado com 403 pelo `require_role`.
 pub async fn get_venda_handler(
     State(pool): State<Arc<DbPool>>,
     user: AuthenticatedUser,
@@ -279,6 +296,33 @@ pub async fn get_venda_handler(
         Ok(v) => v,
         Err(diesel::result::Error::NotFound) => return (StatusCode::NOT_FOUND, Json(serde_json::json!({ "error": "Venda não encontrada." }))).into_response(),
         Err(e) => return (StatusCode::INTERNAL_SERVER_ERROR, format!("Erro ao buscar venda: {}", e)).into_response(),
+    };
+
+    // Ownership: vendedor não espia a venda do colega (nem por ID direto).
+    if user.0.role == "SELLER" && venda.vendedor_id != user.0.sub {
+        return (StatusCode::FORBIDDEN, Json(serde_json::json!({ "error": "Você só pode visualizar as suas próprias vendas." }))).into_response();
+    }
+
+    let vendedor_nome = match users::table
+        .find(venda.vendedor_id)
+        .select(users::name)
+        .first::<String>(&mut conn)
+    {
+        Ok(n) => n,
+        Err(e) => return (StatusCode::INTERNAL_SERVER_ERROR, format!("Erro ao buscar vendedor da venda: {}", e)).into_response(),
+    };
+
+    let cliente_nome: Option<String> = match venda.cliente_id {
+        Some(cid) => match clientes::table
+            .find(cid)
+            .select(clientes::nome)
+            .first::<String>(&mut conn)
+            .optional()
+        {
+            Ok(n) => n,
+            Err(e) => return (StatusCode::INTERNAL_SERVER_ERROR, format!("Erro ao buscar cliente da venda: {}", e)).into_response(),
+        },
+        None => None,
     };
 
     let itens = match itens_venda::table
@@ -311,7 +355,9 @@ pub async fn get_venda_handler(
     (StatusCode::OK, Json(CheckoutVendaResponse {
         id: venda.id,
         cliente_id: venda.cliente_id,
+        cliente_nome,
         vendedor_id: venda.vendedor_id,
+        vendedor_nome,
         metodo_pagamento: venda.metodo_pagamento,
         subtotal: venda.subtotal,
         desconto_total: venda.desconto_total,

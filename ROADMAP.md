@@ -70,11 +70,13 @@ Este documento mapeia o desenvolvimento incremental do **Prancheta**, dividido e
 - [x] `preco_venda` como coluna convencional editável pelo ADMIN (migration `0007`: mantém default `ROUND(preco_compra * 1.30, 2)`).
 - [x] CRUD de clientes (`POST/GET /api/clientes`, `GET/PUT/DELETE /api/clientes/:id` — ADMIN/SELLER).
 - [x] Transação na rota de checkout (`POST /api/vendas`): valida estoque com `SELECT ... FOR UPDATE`, calcula subtotal pelo `preco_venda` vigente, aplica descontos acumulativos (5% cliente cadastrado + 5% DINHEIRO/PIX sobre o restante, arredondados por etapa), registra `vendas` + `itens_venda` e decrementa o estoque.
+- [x] RBAC nas consultas: `GET /api/vendas` barra BUYER (403), SELLER lista só as próprias, ADMIN lista tudo com nome do vendedor/cliente; `GET /api/vendas/:id` com ownership (SELLER só abre as próprias).
 
 ### Front-end (React/Vite)
 - [x] Form/Tabela de Gestão de Clientes (`/clientes`).
 - [x] Preço de venda editável pelo ADMIN no inventário (`/inventory`).
 - [x] Interface de Ponto de Venda (`/pdv`): busca de produtos por nome/EAN, carrinho com controle de quantidade, atribuição opcional de cliente, seleção de pagamento, resumo financeiro em tempo real (badges dos 5% fidelidade e 5% à vista) e checkout com resumo do pedido.
+- [x] Histórico de vendas (`/vendas`, ADMIN/SELLER): tabela com código, data/hora, vendedor (só Admin), cliente, pagamento, desconto e total; busca + filtro por pagamento; modal de detalhes com itens e discriminativo de valores. BUYER navegando via URL cai no `PrivateRoute` (redireciona para `/`).
 
 ### Entregáveis Ágeis
 - [ ] Gravação do vídeo do fluxo de venda completo com baixa automática de estoque.

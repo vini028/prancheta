@@ -7,6 +7,13 @@ export const METODOS_PAGAMENTO: Array<{ value: MetodoPagamento; label: string; a
   { value: 'CARTAO_DEBITO', label: 'Cartão de débito', avista: false },
 ];
 
+export const METODO_PAGAMENTO_LABEL: Record<MetodoPagamento, string> = {
+  DINHEIRO: 'Dinheiro',
+  PIX: 'Pix',
+  CARTAO_CREDITO: 'Cartão de crédito',
+  CARTAO_DEBITO: 'Cartão de débito',
+};
+
 export interface CheckoutItemInput {
   produto_id: number;
   quantidade: number;
@@ -30,7 +37,9 @@ export interface ItemVendaResponse {
 export interface CheckoutVendaResponse {
   id: number;
   cliente_id: number | null;
+  cliente_nome: string | null;
   vendedor_id: string;
+  vendedor_nome: string;
   metodo_pagamento: MetodoPagamento;
   subtotal: number | string;
   desconto_total: number | string;
@@ -46,6 +55,7 @@ export interface VendaResumo {
   cliente_id: number | null;
   cliente_nome: string | null;
   vendedor_id: string;
+  vendedor_nome: string;
   metodo_pagamento: MetodoPagamento;
   subtotal: number | string;
   desconto_total: number | string;

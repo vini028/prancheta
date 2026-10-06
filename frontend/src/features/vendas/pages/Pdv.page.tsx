@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { AppShell, Badge, Button, Card, Input, useToast } from '../../shared/ui';
+import { AppShell, Badge, Button, Card, Input, Modal, useToast } from '../../shared/ui';
 import { getProdutosApi } from '../../produtos/api/produtosApi';
 import type { Produto } from '../../produtos/types/produto.types';
 import { getClientesApi } from '../../clientes/api/clientesApi';
@@ -12,6 +12,7 @@ import type {
 } from '../types/venda.types';
 import { METODOS_PAGAMENTO } from '../types/venda.types';
 import { calcularResumo, formatBRL, toCents } from '../lib/vendaCalc';
+import { VendaDetalheModal } from '../components/VendaDetalheModal';
 
 const getErrorMessage = (error: unknown, fallback: string) =>
   error instanceof Error ? error.message : fallback;
@@ -30,7 +31,7 @@ export const PdvPage: React.FC = () => {
   const [clienteId, setClienteId] = useState<number | null>(null);
   const [metodo, setMetodo] = useState<MetodoPagamento | ''>('');
   const [checkoutLoading, setCheckoutLoading] = useState(false);
-  const [venda, setVenda] = useState<CheckoutVendaResponse | null>(null);
+  const [selectedVenda, setSelectedVenda] = useState<CheckoutVendaResponse | null>(null);
   const { showToast } = useToast();
 
   const loadData = useCallback(async () => {
@@ -77,7 +78,6 @@ export const PdvPage: React.FC = () => {
       showToast(`"${produto.nome}" está sem estoque.`, 'error');
       return;
     }
-    setVenda(null);
     setCart((prev) => {
       const line = prev.find((l) => l.produto.id === produto.id);
       const emCarrinho = line?.quantidade ?? 0;
@@ -93,7 +93,6 @@ export const PdvPage: React.FC = () => {
   };
 
   const setQuantidade = (produtoId: number, quantidade: number) => {
-    setVenda(null);
     setCart((prev) => {
       if (quantidade <= 0) return prev.filter((l) => l.produto.id !== produtoId);
       return prev.map((l) => {
@@ -123,7 +122,8 @@ export const PdvPage: React.FC = () => {
         metodo_pagamento: metodo,
         itens: cart.map((l) => ({ produto_id: l.produto.id, quantidade: l.quantidade })),
       });
-      setVenda(resp);
+      // Abre o modal de detalhes automaticamente com a venda recém-criada.
+      setSelectedVenda(resp);
       setCart([]);
       showToast(`Venda #${resp.id} registrada com sucesso.`, 'success');
       void loadData();
@@ -134,42 +134,20 @@ export const PdvPage: React.FC = () => {
     }
   };
 
+  // Fechar o modal (botão "Nova venda", X ou clique fora) limpa o PDV para
+  // o próximo atendimento, sem recarregar a página.
   const novaVenda = () => {
-    setVenda(null);
+    setSelectedVenda(null);
     setCart([]);
+    setClienteId(null);
     setMetodo('');
+    setBusca('');
   };
 
   const clienteSelecionado = clientes.find((c) => c.id === clienteId) ?? null;
 
   return (
     <AppShell title="Ponto de Venda (PDV)">
-      {venda && (
-        <Card title={`Venda #${venda.id} concluída`}>
-          <div style={{ display: 'grid', gap: 'var(--space-2)', marginBottom: 'var(--space-4)' }}>
-            {venda.itens.map((item) => (
-              <div key={item.produto_id} style={rowStyle}>
-                <span>{item.quantidade}× {item.produto_nome}</span>
-                <span>{formatBRL(toCents(item.subtotal))}</span>
-              </div>
-            ))}
-            <div style={rowStyle}>
-              <span>Subtotal</span>
-              <span>{formatBRL(toCents(venda.subtotal))}</span>
-            </div>
-            <div style={rowStyle}>
-              <span>Desconto total</span>
-              <span>−{formatBRL(toCents(venda.desconto_total))}</span>
-            </div>
-            <div style={{ ...rowStyle, fontWeight: 700, fontSize: 'var(--text-lg)' }}>
-              <span>Valor final ({venda.metodo_pagamento})</span>
-              <span>{formatBRL(toCents(venda.valor_final))}</span>
-            </div>
-          </div>
-          <Button variant="secondary" onClick={novaVenda}>Nova venda</Button>
-        </Card>
-      )}
-
       <div style={gridStyle}>
         <Card title="Produtos">
           <Input
@@ -227,7 +205,6 @@ export const PdvPage: React.FC = () => {
               id="pdv-cliente"
               value={clienteId === null ? '' : String(clienteId)}
               onChange={(e) => {
-                setVenda(null);
                 setClienteId(e.target.value === '' ? null : Number(e.target.value));
               }}
               style={selectStyle}
@@ -248,7 +225,6 @@ export const PdvPage: React.FC = () => {
                   size="sm"
                   variant={metodo === m.value ? 'primary' : 'secondary'}
                   onClick={() => {
-                    setVenda(null);
                     setMetodo(m.value);
                   }}
                 >
@@ -304,6 +280,16 @@ export const PdvPage: React.FC = () => {
           </Card>
         </div>
       </div>
+
+      <Modal
+        isOpen={selectedVenda !== null}
+        onClose={novaVenda}
+        title={selectedVenda ? `Venda #${selectedVenda.id} registrada` : 'Venda registrada'}
+      >
+        {selectedVenda && (
+          <VendaDetalheModal venda={selectedVenda} onClose={novaVenda} closeLabel="Nova venda" />
+        )}
+      </Modal>
     </AppShell>
   );
 };

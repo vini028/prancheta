@@ -95,7 +95,9 @@ pub struct ItemVendaResponse {
 pub struct CheckoutVendaResponse {
     pub id: i32,
     pub cliente_id: Option<i32>,
+    pub cliente_nome: Option<String>,
     pub vendedor_id: Uuid,
+    pub vendedor_nome: String,
     pub metodo_pagamento: String,
     pub subtotal: BigDecimal,
     pub desconto_total: BigDecimal,

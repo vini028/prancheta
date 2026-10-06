@@ -55,8 +55,8 @@ export const HomePage: React.FC = () => {
             />
           </>
         )}
-        <StatCard label="Estoque crítico" value="—" hint="Chega na Fase 3 · 08/11" tone="warning" icon={icon('M12 9v4m0 4h.01M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z')} />
-        <StatCard label="Faturamento" value="—" hint="Chega na Fase 4 · 01/12" tone="positive" icon={icon('M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6')} />
+        <StatCard label="Estoque crítico" value="—" hint="Chega na Fase 4 · 22/11" tone="warning" icon={icon('M12 9v4m0 4h.01M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z')} />
+        <StatCard label="Faturamento" value="—" hint="Chega na Fase 4 · 22/11" tone="positive" icon={icon('M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6')} />
       </div>
 
       <Card title="Sua conta" subtitle={`Perfil atual: ${user?.role}`}>

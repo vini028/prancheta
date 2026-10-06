@@ -11,6 +11,7 @@ import { ConferenciaPage } from '../features/compras/pages/Conferencia.page';
 import { InventoryPage } from '../features/produtos/pages/Inventory.page';
 import { ClientesPage } from '../features/clientes/pages/Clientes.page';
 import { PdvPage } from '../features/vendas/pages/Pdv.page';
+import { VendasPage } from '../features/vendas/pages/Vendas.page';
 import { PrivateRoute } from './PrivateRoute';
 
 export const AppRoutes: React.FC = () => {
@@ -38,10 +39,11 @@ export const AppRoutes: React.FC = () => {
         <Route path="/inventory" element={<InventoryPage />} />
       </Route>
 
-      {/* Módulo do Vendedor/PDV (AC03): ADMIN e SELLER */}
+      {/* Módulo do Vendedor/PDV (AC03): ADMIN e SELLER. BUYER cai no "/" (acesso restrito). */}
       <Route element={<PrivateRoute allowedRoles={['ADMIN', 'SELLER']} />}>
         <Route path="/clientes" element={<ClientesPage />} />
         <Route path="/pdv" element={<PdvPage />} />
+        <Route path="/vendas" element={<VendasPage />} />
       </Route>
 
       {/* Rota Protegida Exclusiva (Apenas ADMIN) */}
