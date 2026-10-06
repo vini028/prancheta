@@ -33,35 +33,30 @@ Este documento mapeia o desenvolvimento incremental do **Prancheta**, dividido e
 
 ### Entregáveis Ágeis
 - [x] Atualização do Board no GitHub.
-- [ ] Gravação e publicação do vídeo da funcionalidade da AC1.
-- [ ] Submissão individual no Google Classroom.
+- [x] Gravação e publicação do vídeo da funcionalidade da AC1.
+- [x] Submissão individual no Google Classroom.
 
 ---
 
 ## 📦 Sprint 2: AC2 — Módulo do Admin e Inventário (Data Limite: 13/10/2026)
-> **Foco:** Gestão de produtos no estoque e administração de usuários.
+> **Foco:** Cadastro/Gestão de produtos no estoque e Fluxo de Aprovação de Pedidos de Compra.
 
 ### Back-end (Rust/Axum/Diesel)
-- [x] Migration e model para a tabela `produtos` (`id`, `nome`, `ean` UNIQUE, `preco`, `quantidade_estoque`) + índice `idx_produtos_ean`.
+- [x] Migration e model para a tabela `produtos` (`id`, `nome`, `ean` UNIQUE, `preco_compra`, `quantidade_estoque`) + índice `idx_produtos_ean`.
+- [x] Preços de compra/venda: `preco_compra` + `preco_venda` gerada no Postgres (`ROUND(preco_compra * 1.30, 2)` STORED) — migration `0004`.
 - [x] Handlers REST para produtos: CRUD completo (`POST/GET /api/produtos`, `PUT/DELETE /api/produtos/:id` — escrita só ADMIN, leitura ADMIN/BUYER/SELLER).
-- [x] Rota administrativa: `PUT /users/:id/role` (para alteração de privilégios) e `DELETE /users/:id`. *(já existiam como `PATCH /api/admin/users/:id/role` e `DELETE /api/admin/users/:id`)*
-- [x] Fluxo de aprovação do pedido: `PATCH /api/pedidos-compra/:id/aprovar` (PENDENTE → APROVADO + `status_envio` = CONFIRMADO, só ADMIN), `/rejeitar` (→ REJEITADO, só ADMIN), `/cancelar` (→ CANCELADO a partir de APROVADO/COM_PROBLEMA, só ADMIN).
-- [x] Fluxo logístico: `PATCH /api/pedidos-compra/:id/status-envio` (BUYER dono ou ADMIN override) com máquina CONFIRMADO → ENVIADO → RECEBIDO → CONFERIDO → CONCLUIDO, exceção COM_PROBLEMA (+ `observacao_problema` obrigatória) e entrada em estoque transacional e idempotente na conclusão.
-- [x] Edição de pedido (`PUT /api/pedidos-compra/:id`) bloqueada fora de PENDENTE (409).
-- [x] Preços de compra/venda: `preco_compra` + `preco_venda` gerada no Postgres (`ROUND(preco_compra * 1.30, 2)` STORED) — migration `0004`, nunca dessincroniza.
-- [x] Conferência item a item: `quantidade_recebida`, `status_item` (PENDENTE/OK/PROBLEMA), `observacao_item` em `pedido_itens` (migration `0005`) + `PUT /api/pedidos-compra/:id/conferencia` (BUYER dono ou ADMIN, só em RECEBIDO, 409 fora disso, 400 p/ PROBLEMA sem observação).
-- [x] Regras de envio reforçadas: CONFERIDO exige conferência completa sem PROBLEMA (409); COM_PROBLEMA reaproveita observações da conferência; CONCLUIDO sobe ao estoque pela quantidade recebida (`quantidade_recebida ?? quantidade`).
+- [x] Fluxo de aprovação do pedido pelo Admin: `PATCH /api/pedidos-compra/:id/aprovar` (PENDENTE → APROVADO + `status_envio` = CONFIRMADO), `/rejeitar` (→ REJEITADO), `/cancelar` (→ CANCELADO).
+- [x] Fluxo logístico e atualização transacional do estoque: `PATCH /api/pedidos-compra/:id/status-envio` (CONFIRMADO → ENVIADO → RECEBIDO → CONFERIDO → CONCLUIDO) com atualização automática e idempotente do estoque e preço de compra ao concluir.
+- [x] Conferência item a item: `PUT /api/pedidos-compra/:id/conferencia` (`quantidade_recebida`, status OK/PROBLEMA e observações por item).
 
 ### Front-end (React/Vite)
-- [x] Tela de cadastro e manutenção do inventário de produtos (`/inventory`: `ProdutoForm` + edição em modal).
-- [x] Tabela com busca (nome/EAN) e filtro do estoque (`ProdutoTable`), com alerta de estoque baixo (< 5).
-- [x] Painel de Administração de Usuários (para o Admin alterar Roles e remover cadastros). *(já existia em `/users`)*
-- [x] Pedidos com colunas Aprovação + Envio, botões Aprovar/Rejeitar/Cancelar (ADMIN), stepper de envio + modal "Relatar problema" (BUYER dono), override de envio (ADMIN).
-- [x] Tabela de produtos com colunas "Preço de Compra" e "Preço de Venda" (+30%) lado a lado; form edita só o preço de compra (venda recalcula no banco).
-- [x] Tela de Conferência (`/compras/:id/conferencia`, botão "Conferir itens" em pedidos RECEBIDOS): qtd. recebida, seletor OK/Problema, observação obrigatória p/ Problema, "Salvar conferência" + "Confirmar conferência" (→ CONFERIDO, só sem Problema) / "Reportar problema no pedido" (→ COM_PROBLEMA).
+- [x] Tela de cadastro e manutenção do inventário de produtos (`/inventory`: `ProdutoForm` + modal de edição).
+- [x] Tabela de estoque com busca por EAN/Nome, exibição lado a lado dos preços de compra/venda e alertas visuais de estoque baixo.
+- [x] Tabela de Pedidos de Compra com ações de aprovação/rejeição/cancelamento pelo Admin e stepper do status logístico.
+- [x] Tela de Conferência de Itens (`/compras/:id/conferencia`) para validação do recebimento antes do lançamento no estoque.
 
 ### Entregáveis Ágeis
-- [ ] Gravação do vídeo com perfil `Admin` cadastrando produtos e alterando roles.
+- [ ] Gravação do vídeo com perfil `Admin` cadastrando produtos no estoque e aprovando pedidos de compra.
 - [ ] Submissão no Google Classroom.
 
 ---
@@ -84,15 +79,21 @@ Este documento mapeia o desenvolvimento incremental do **Prancheta**, dividido e
 
 ---
 
-## 🏁 Sprint Final: Prova — Diagramas UML e Refinamentos (Data Limite: 22/11/2026)
-> **Foco:** Documentação arquitetural completa e melhorias visuais.
+## 🏁 Sprint Final: Prova — Gestão de Usuários, Diagramas UML e Refinamentos (Data Limite: 22/11/2026)
+> **Foco:** Painel de Usuários, documentação arquitetural e melhorias visuais.
+
+### Módulo do Administrador — Gestão de Usuários
+- [ ] Painel de Administração de Usuários (`/users`):
+  - Rota `PATCH /api/admin/users/:id/role` para alteração de privilégios (`ADMIN`, `BUYER`, `SELLER`).
+  - Rota `PATCH /api/admin/users/:id/active` para habilitação/desabilitação de contas (`is_active`).
+  - Rota `DELETE /api/admin/users/:id` para exclusão definitiva de cadastros.
 
 ### Documentação Arquitetural
 - [ ] **Diagrama de Casos de Uso:** Mapeamento dos atores (`Comprador`, `Vendedor`, `Administrador`) e suas interações com o sistema.
 - [ ] **Diagrama de Classes:** Mapeamento da estrutura das entidades (`User`, `Fornecedor`, `PedidoCompra`, `Produto`, `Cliente`, `Venda`).
 - [ ] Exportação e inclusão dos diagramas na pasta `/docs` do repositório.
 
-### Funcionalidade Visual Extra
+### Funcionalidades Visuais e Dashboard
 - [ ] Destaque/Alerta em vermelho na interface para produtos com estoque baixo (ex: < 5 unidades).
 - [ ] Dashboard com indicadores agregados (Total de Compras x Total de Vendas).
 
