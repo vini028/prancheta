@@ -10,6 +10,7 @@ mod auth;
 mod handlers;
 mod routes;
 mod models;
+mod money;
 mod schema;
 
 #[tokio::main]

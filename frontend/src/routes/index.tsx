@@ -9,6 +9,8 @@ import { SuppliersPage } from '../features/fornecedores/pages/Suppliers.page';
 import { PurchasesPage } from '../features/compras/pages/Purchases.page';
 import { ConferenciaPage } from '../features/compras/pages/Conferencia.page';
 import { InventoryPage } from '../features/produtos/pages/Inventory.page';
+import { ClientesPage } from '../features/clientes/pages/Clientes.page';
+import { PdvPage } from '../features/vendas/pages/Pdv.page';
 import { PrivateRoute } from './PrivateRoute';
 
 export const AppRoutes: React.FC = () => {
@@ -34,6 +36,12 @@ export const AppRoutes: React.FC = () => {
       {/* Inventário: leitura para ADMIN, BUYER e SELLER; escrita só ADMIN (na UI) */}
       <Route element={<PrivateRoute allowedRoles={['ADMIN', 'BUYER', 'SELLER']} />}>
         <Route path="/inventory" element={<InventoryPage />} />
+      </Route>
+
+      {/* Módulo do Vendedor/PDV (AC03): ADMIN e SELLER */}
+      <Route element={<PrivateRoute allowedRoles={['ADMIN', 'SELLER']} />}>
+        <Route path="/clientes" element={<ClientesPage />} />
+        <Route path="/pdv" element={<PdvPage />} />
       </Route>
 
       {/* Rota Protegida Exclusiva (Apenas ADMIN) */}

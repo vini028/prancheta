@@ -543,10 +543,10 @@ pub async fn update_status_envio_handler(
                     Some(_) => {
                         // Produto existente: soma o estoque E atualiza o
                         // preco_compra para o valor unitário mais recente do
-                        // pedido. O preco_venda é recalculado sozinho pelo
-                        // banco (coluna gerada). Tudo dentro da mesma
-                        // transação: idempotente (CONCLUIDO só ocorre uma vez)
-                        // e atômico.
+                        // pedido. O preco_venda individualizado pelo ADMIN é
+                        // preservado (coluna convencional desde a AC03).
+                        // Tudo dentro da mesma transação: idempotente
+                        // (CONCLUIDO só ocorre uma vez) e atômico.
                         diesel::update(produtos::table.filter(produtos::ean.eq(&ean)))
                             .set((
                                 produtos::quantidade_estoque.eq(produtos::quantidade_estoque + qtd_recebida),
@@ -558,11 +558,13 @@ pub async fn update_status_envio_handler(
                     None => {
                         // EAN inédito: cria o produto usando nome e valor unitário do item
                         // (o ADMIN pode ajustar nome/preço depois no inventário).
+                        // O preco_venda nasce do padrão compra × 1,30.
                         diesel::insert_into(produtos::table)
                             .values(&NewProduto {
                                 nome: item.item.clone(),
                                 ean,
                                 preco_compra: item.valor_unitario.clone(),
+                                preco_venda: Some(crate::models::produto_model::preco_venda_padrao(&item.valor_unitario)),
                                 quantidade_estoque: qtd_recebida,
                             })
                             .execute(conn)?;

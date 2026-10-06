@@ -1,5 +1,5 @@
 # Estágio de planejamento
-FROM rust:1.95-slim AS planner
+FROM rust:1.91-slim AS planner
 WORKDIR /app
 
 COPY Cargo.toml Cargo.lock ./
@@ -9,7 +9,7 @@ RUN cargo install cargo-chef
 RUN cargo chef prepare --recipe-path recipe.json
 
 # Estágio de build
-FROM rust:1.95-slim AS builder
+FROM rust:1.91-slim AS builder
 WORKDIR /app
 
 RUN apt-get update && apt-get install -y \

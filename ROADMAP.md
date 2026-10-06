@@ -65,13 +65,16 @@ Este documento mapeia o desenvolvimento incremental do **Prancheta**, dividido e
 > **Foco:** Atendimento ao cliente, criação de pedidos de venda e baixa em estoque.
 
 ### Back-end (Rust/Axum/Diesel)
-- [ ] Migration e model para a tabela `clientes` (`id`, `nome`, `cpf`, `email`).
-- [ ] Migration e model para tabelas `vendas` e `itens_venda`.
-- [ ] Transação na rota de checkout (`POST /vendas`): registrar a venda, vincular o cliente/vendedor e decrementar a quantidade na tabela `produtos`.
+- [x] Migration e model para a tabela `clientes` (`id`, `nome`, `cpf` UNIQUE, `email`) — migration `0008`.
+- [x] Migration e model para tabelas `vendas` e `itens_venda` — migration `0009`.
+- [x] `preco_venda` como coluna convencional editável pelo ADMIN (migration `0007`: mantém default `ROUND(preco_compra * 1.30, 2)`).
+- [x] CRUD de clientes (`POST/GET /api/clientes`, `GET/PUT/DELETE /api/clientes/:id` — ADMIN/SELLER).
+- [x] Transação na rota de checkout (`POST /api/vendas`): valida estoque com `SELECT ... FOR UPDATE`, calcula subtotal pelo `preco_venda` vigente, aplica descontos acumulativos (5% cliente cadastrado + 5% DINHEIRO/PIX sobre o restante, arredondados por etapa), registra `vendas` + `itens_venda` e decrementa o estoque.
 
 ### Front-end (React/Vite)
-- [ ] Form/Tabela de Gestão de Clientes.
-- [ ] Interface de Ponto de Venda (PDV / Carrinho): seleção de produtos, atribuição de cliente e conclusão da venda.
+- [x] Form/Tabela de Gestão de Clientes (`/clientes`).
+- [x] Preço de venda editável pelo ADMIN no inventário (`/inventory`).
+- [x] Interface de Ponto de Venda (`/pdv`): busca de produtos por nome/EAN, carrinho com controle de quantidade, atribuição opcional de cliente, seleção de pagamento, resumo financeiro em tempo real (badges dos 5% fidelidade e 5% à vista) e checkout com resumo do pedido.
 
 ### Entregáveis Ágeis
 - [ ] Gravação do vídeo do fluxo de venda completo com baixa automática de estoque.

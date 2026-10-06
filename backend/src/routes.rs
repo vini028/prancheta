@@ -52,4 +52,12 @@ pub fn create_router() -> Router<Arc<DbPool>> {
         .route("/api/produtos", post(handlers::produto_handler::create_produto_handler).get(handlers::produto_handler::list_produtos_handler))
         .route("/api/produtos/entrada", post(handlers::produto_handler::entrada_estoque_handler))
         .route("/api/produtos/:id", put(handlers::produto_handler::update_produto_handler).delete(handlers::produto_handler::delete_produto_handler))
+
+        // Rotas de clientes (ADMIN ou SELLER)
+        .route("/api/clientes", post(handlers::cliente_handler::create_cliente_handler).get(handlers::cliente_handler::list_clientes_handler))
+        .route("/api/clientes/:id", get(handlers::cliente_handler::get_cliente_handler).put(handlers::cliente_handler::update_cliente_handler).delete(handlers::cliente_handler::delete_cliente_handler))
+
+        // Rotas de vendas/PDV (ADMIN ou SELLER)
+        .route("/api/vendas", post(handlers::venda_handler::checkout_venda_handler).get(handlers::venda_handler::list_vendas_handler))
+        .route("/api/vendas/:id", get(handlers::venda_handler::get_venda_handler))
 }

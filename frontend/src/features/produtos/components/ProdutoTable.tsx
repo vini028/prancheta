@@ -36,12 +36,17 @@ export const ProdutoTable: React.FC<ProdutoTableProps> = ({ produtos, loading, c
     {
       key: 'preco_venda',
       header: 'Preço de Venda',
-      render: (p) => (
-        <span style={{ display: 'inline-flex', gap: '8px', alignItems: 'center' }}>
-          {formatCurrency(p.preco_venda)}
-          <Badge tone="positive">+30%</Badge>
-        </span>
-      ),
+      render: (p) => {
+        const compra = Number(p.preco_compra);
+        const venda = Number(p.preco_venda);
+        const padrao = Math.abs(venda - compra * 1.3) < 0.015;
+        return (
+          <span style={{ display: 'inline-flex', gap: '8px', alignItems: 'center' }}>
+            {formatCurrency(p.preco_venda)}
+            {padrao ? <Badge tone="positive">+30%</Badge> : <Badge tone="info">Individual</Badge>}
+          </span>
+        );
+      },
       numeric: true,
     },
     {

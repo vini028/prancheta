@@ -7,20 +7,24 @@ use bigdecimal::{BigDecimal, Zero};
 use crate::{
     db::DbPool,
     auth::middleware::{AuthenticatedUser, require_role},
-    models::produto_model::{Produto, NewProduto, UpdateProduto, EntradaEstoqueInput},
+    models::produto_model::{Produto, NewProduto, UpdateProduto, EntradaEstoqueInput, preco_venda_padrao},
     schema::produtos,
 };
 
-/// Regra de negócio: preço de compra deve ser sempre positivo.
+/// Regras de negócio: preços (compra e venda) devem ser sempre positivos.
 /// Valores zerados, negativos ou nulos são rejeitados antes de tocar o banco.
-/// O `preco_venda` é coluna gerada no PostgreSQL
-/// (`ROUND(preco_compra * 1.30, 2) STORED`) e se ajusta sozinho.
-fn preco_compra_valido(preco: &BigDecimal) -> bool {
+/// Desde a AC03 (migration 0007), `preco_venda` é coluna convencional editável
+/// pelo ADMIN; quando não informado, assume ROUND(preco_compra * 1.30, 2).
+fn preco_valido(preco: &BigDecimal) -> bool {
     preco > &BigDecimal::zero()
 }
 
 fn erro_preco_invalido() -> serde_json::Value {
     serde_json::json!({ "error": "preco_compra deve ser maior que zero." })
+}
+
+fn erro_preco_venda_invalido() -> serde_json::Value {
+    serde_json::json!({ "error": "preco_venda deve ser maior que zero." })
 }
 
 pub async fn create_produto_handler(
@@ -32,9 +36,16 @@ pub async fn create_produto_handler(
         return response;
     }
 
-    if !preco_compra_valido(&payload.preco_compra) {
+    if !preco_valido(&payload.preco_compra) {
         return (StatusCode::BAD_REQUEST, Json(erro_preco_invalido())).into_response();
     }
+    // Preço de venda individualizado (ADMIN): se não informado, assume o
+    // padrão ROUND(preco_compra * 1.30, 2).
+    let preco_venda = match payload.preco_venda {
+        Some(pv) if preco_valido(&pv) => pv,
+        Some(_) => return (StatusCode::BAD_REQUEST, Json(erro_preco_venda_invalido())).into_response(),
+        None => preco_venda_padrao(&payload.preco_compra),
+    };
     if payload.quantidade_estoque < 0 {
         return (StatusCode::BAD_REQUEST, Json(serde_json::json!({ "error": "quantidade_estoque não pode ser negativa." }))).into_response();
     }
@@ -64,7 +75,13 @@ pub async fn create_produto_handler(
     }
 
     match diesel::insert_into(produtos::table)
-        .values(&payload)
+        .values((
+            produtos::nome.eq(&payload.nome),
+            produtos::ean.eq(&payload.ean),
+            produtos::preco_compra.eq(&payload.preco_compra),
+            produtos::preco_venda.eq(&preco_venda),
+            produtos::quantidade_estoque.eq(payload.quantidade_estoque),
+        ))
         .get_result::<Produto>(&mut conn)
     {
         Ok(produto) => (StatusCode::CREATED, Json(produto)).into_response(),
@@ -95,17 +112,30 @@ pub async fn update_produto_handler(
     State(pool): State<Arc<DbPool>>,
     user: AuthenticatedUser,
     Path(id): Path<i32>,
-    Json(payload): Json<UpdateProduto>,
+    Json(mut payload): Json<UpdateProduto>,
 ) -> impl IntoResponse {
     if let Err(response) = require_role(&user.0, &["ADMIN"]) {
         return response;
     }
 
-    // Tratamento de valores nulos/divergentes: rejeita preço zerado ou
-    // negativo e estoque negativo antes de tocar o banco.
+    // Tratamento de valores nulos/divergentes: rejeita preços zerados ou
+    // negativos e estoque negativo antes de tocar o banco.
     if let Some(ref preco) = payload.preco_compra {
-        if !preco_compra_valido(preco) {
+        if !preco_valido(preco) {
             return (StatusCode::BAD_REQUEST, Json(erro_preco_invalido())).into_response();
+        }
+    }
+    if let Some(ref pv) = payload.preco_venda {
+        if !preco_valido(pv) {
+            return (StatusCode::BAD_REQUEST, Json(erro_preco_venda_invalido())).into_response();
+        }
+    }
+    // Se o custo mudou e nenhum preço de venda foi informado, o padrão
+    // (compra × 1,30) é reaplicado; preço individualizado nunca é
+    // sobrescrito sem pedido explícito.
+    if payload.preco_venda.is_none() {
+        if let Some(ref preco) = payload.preco_compra {
+            payload.preco_venda = Some(preco_venda_padrao(preco));
         }
     }
     if let Some(qtd) = payload.quantidade_estoque {
@@ -156,9 +186,9 @@ pub async fn delete_produto_handler(
 /// já existente (busca por EAN ou ID).
 ///
 /// Regra de negócio: soma `quantidade` à `quantidade_estoque` e atualiza
-/// `preco_compra` para o valor mais recente. O `preco_venda` é recalculado
-/// automaticamente pelo banco (coluna gerada). Tudo em transação para
-/// manter idoneidade do estoque e dos preços.
+/// `preco_compra` para o valor mais recente. O `preco_venda` individualizado
+/// pelo ADMIN é preservado (não é recalculado na entrada). Tudo em transação
+/// para manter idoneidade do estoque e dos preços.
 pub async fn entrada_estoque_handler(
     State(pool): State<Arc<DbPool>>,
     user: AuthenticatedUser,
@@ -168,7 +198,7 @@ pub async fn entrada_estoque_handler(
         return response;
     }
 
-    if !preco_compra_valido(&payload.preco_compra) {
+    if !preco_valido(&payload.preco_compra) {
         return (StatusCode::BAD_REQUEST, Json(erro_preco_invalido())).into_response();
     }
     if payload.quantidade <= 0 {
@@ -219,8 +249,8 @@ mod tests {
 
     #[test]
     fn rejeita_preco_zero_e_negativo() {
-        assert!(!preco_compra_valido(&BigDecimal::from(0)));
-        assert!(!preco_compra_valido(&BigDecimal::from(-1)));
-        assert!(preco_compra_valido(&BigDecimal::from(1)));
+        assert!(!preco_valido(&BigDecimal::from(0)));
+        assert!(!preco_valido(&BigDecimal::from(-1)));
+        assert!(preco_valido(&BigDecimal::from(1)));
     }
 }

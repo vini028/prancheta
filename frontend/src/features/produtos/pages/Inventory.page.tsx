@@ -37,7 +37,7 @@ export const InventoryPage: React.FC = () => {
   }, [loadData]);
 
   return (
-    <AppShell title="Inventário">
+    <AppShell title="Estoque">
       {isAdmin && (
         <div style={{ marginBottom: 'var(--space-6)' }}>
           <ProdutoForm onSuccess={loadData} />
@@ -54,6 +54,7 @@ export const InventoryPage: React.FC = () => {
       <Modal isOpen={!!produtoToEdit} onClose={() => setProdutoToEdit(null)} title="Editar produto">
         {produtoToEdit && (
           <ProdutoForm
+            key={produtoToEdit.id}
             produto={produtoToEdit}
             onSuccess={() => {
               setProdutoToEdit(null);

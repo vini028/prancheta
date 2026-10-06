@@ -4,3 +4,5 @@ pub mod user_model;
 pub mod fornecedor_model;
 pub mod pedido_model;
 pub mod produto_model;
+pub mod cliente_model;
+pub mod venda_model;
