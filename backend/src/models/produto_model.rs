@@ -35,3 +35,15 @@ pub struct UpdateProduto {
     pub preco_compra: Option<BigDecimal>,
     pub quantidade_estoque: Option<i32>,
 }
+
+/// Entrada de estoque para produto já existente (por EAN ou ID):
+/// soma `quantidade` ao estoque e atualiza `preco_compra` para o valor
+/// mais recente. O `preco_venda` é recalculado automaticamente pelo
+/// PostgreSQL (coluna gerada `ROUND(preco_compra * 1.30, 2) STORED`).
+#[derive(Deserialize, Debug)]
+pub struct EntradaEstoqueInput {
+    pub ean: Option<String>,
+    pub produto_id: Option<i32>,
+    pub preco_compra: BigDecimal,
+    pub quantidade: i32,
+}

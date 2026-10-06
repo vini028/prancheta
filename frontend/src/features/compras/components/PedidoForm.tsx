@@ -58,8 +58,8 @@ export const PedidoForm: React.FC<PedidoFormProps> = ({ onSuccess, pedido }) => 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!fornecedorId || itens.some(i => !i.item.trim() || i.quantidade <= 0 || Number(i.valor_unitario) < 0)) {
-      showToast('Preencha os dados do fornecedor e de todos os itens corretamente.', 'error');
+    if (!fornecedorId || itens.some(i => !i.item.trim() || i.quantidade <= 0 || i.valor_unitario === '' || Number(i.valor_unitario) <= 0)) {
+      showToast('Preencha o fornecedor e todos os itens: nome, quantidade maior que zero e valor unitário de compra maior que zero.', 'error');
       return;
     }
 
@@ -119,7 +119,7 @@ export const PedidoForm: React.FC<PedidoFormProps> = ({ onSuccess, pedido }) => 
               onChange={(e) => updateItem(index, 'ean', e.target.value)} 
             />
             <Input label="Quantidade" type="number" min={1} value={item.quantidade} onChange={(e) => updateItem(index, 'quantidade', Number(e.target.value))} required />
-            <Input label="Valor Unitário" type="number" min={0} step="0.01" value={item.valor_unitario} onChange={(e) => updateItem(index, 'valor_unitario', Number(e.target.value))} required />
+            <Input label="Valor Unit. Compra (R$)" type="number" min={0.01} step="0.01" value={item.valor_unitario} onChange={(e) => updateItem(index, 'valor_unitario', Number(e.target.value))} required placeholder="Ex.: 10.50" />
             <Button type="button" variant="danger" onClick={() => removeItem(index)} style={{ marginTop: '22px' }}>X</Button>
           </div>
         ))}
@@ -127,6 +127,11 @@ export const PedidoForm: React.FC<PedidoFormProps> = ({ onSuccess, pedido }) => 
         <div style={{ fontSize: 'var(--text-lg)', fontWeight: 'bold', margin: 'var(--space-3) 0' }}>
           Total: R$ {totalValor.toFixed(2)}
         </div>
+
+        <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginBottom: 'var(--space-3)' }}>
+          Ao concluir o recebimento, a quantidade entra no estoque e o preço de compra dos produtos
+          vinculados é atualizado no inventário com o valor unitário deste pedido.
+        </p>
 
         <Button type="submit" isLoading={loading} loadingText="Salvando...">
           {pedido ? 'Atualizar pedido' : 'Registrar pedido'}

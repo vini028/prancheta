@@ -108,6 +108,11 @@ export const ConferenciaPage: React.FC = () => {
               A conferência só pode ser preenchida quando o envio está RECEBIDO.
             </p>
           )}
+          <p style={{ marginBottom: 'var(--space-3)', fontSize: 'var(--text-sm)', padding: '8px 12px', borderRadius: 'var(--radius-md)', background: 'var(--warning-bg, #fff8e1)', border: '1px solid var(--border)' }}>
+            Ao concluir o recebimento, a quantidade recebida entra no estoque e o preço de compra
+            dos produtos vinculados será atualizado no inventário com o valor unitário deste pedido
+            (o preço de venda é recalculado automaticamente: compra × 1,30).
+          </p>
           {itens.length === 0 ? (
             <p>Nenhum item neste pedido.</p>
           ) : (

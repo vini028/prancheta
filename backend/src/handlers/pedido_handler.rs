@@ -2,14 +2,35 @@ use axum::{extract::{State, Path}, Json, response::IntoResponse, http::StatusCod
 use diesel::prelude::*;
 use std::sync::Arc;
 use chrono::Utc;
+use bigdecimal::{BigDecimal, Zero};
 
 use crate::{
-    auth::middleware::{AuthenticatedUser, require_role}, 
-    db::DbPool, 
-    models::pedido_model::{CreatePedidoInput, NewPedidoCompra, NewPedidoItem, PedidoCompra, PedidoCompraResponse, PedidoItem, UpdatePedidoInput, UpdatePedidoStatusInput, UpdateStatusEnvioInput, ConferenciaPedidoInput}, 
-    models::produto_model::{NewProduto, Produto}, 
+    auth::middleware::{AuthenticatedUser, require_role},
+    db::DbPool,
+    models::pedido_model::{CreatePedidoInput, CreatePedidoItemInput, NewPedidoCompra, NewPedidoItem, PedidoCompra, PedidoCompraResponse, PedidoItem, UpdatePedidoInput, UpdatePedidoStatusInput, UpdateStatusEnvioInput, ConferenciaPedidoInput},
+    models::produto_model::{NewProduto, Produto},
     schema::{pedido_itens, pedidos_compra, produtos, users},
 };
+
+/// Valida os itens do pedido antes de persistir: quantidade positiva e
+/// valor unitário de compra maior que zero (nulos/divergências viram 400).
+fn validar_itens_pedido(itens: &[CreatePedidoItemInput]) -> Result<(), String> {
+    if itens.is_empty() {
+        return Err("O pedido deve conter ao menos um item.".to_string());
+    }
+    for i in itens {
+        if i.item.trim().is_empty() {
+            return Err("Cada item deve ter um nome.".to_string());
+        }
+        if i.quantidade <= 0 {
+            return Err(format!("O item '{}' deve ter quantidade maior que zero.", i.item));
+        }
+        if i.valor_unitario <= BigDecimal::zero() {
+            return Err(format!("O item '{}' deve ter valor unitário de compra maior que zero.", i.item));
+        }
+    }
+    Ok(())
+}
 
 pub async fn create_pedido_handler(
     State(pool): State<Arc<DbPool>>,
@@ -18,6 +39,10 @@ pub async fn create_pedido_handler(
 ) -> impl IntoResponse {
     if let Err(response) = require_role(&user.0, &["ADMIN", "BUYER"]) {
         return response;
+    }
+
+    if let Err(msg) = validar_itens_pedido(&payload.itens) {
+        return (StatusCode::BAD_REQUEST, Json(serde_json::json!({ "error": msg }))).into_response();
     }
 
     let mut conn = pool.get().expect("Erro ao obter conexão do pool");
@@ -111,6 +136,10 @@ pub async fn update_pedido_handler(
             return (StatusCode::CONFLICT, Json(serde_json::json!({ "error": "Apenas pedidos com status PENDENTE podem ser editados." }))).into_response();
         }
         Ok(_) => {}
+    }
+
+    if let Err(msg) = validar_itens_pedido(&payload.itens) {
+        return (StatusCode::BAD_REQUEST, Json(serde_json::json!({ "error": msg }))).into_response();
     }
 
     let resultado = conn.transaction::<(), diesel::result::Error, _>(|conn| {
@@ -478,6 +507,17 @@ pub async fn update_status_envio_handler(
             return (StatusCode::UNPROCESSABLE_ENTITY, Json(serde_json::json!({ "error": format!("O item '{}' não possui EAN e não pode subir ao estoque automaticamente. Cadastre o EAN no item antes de concluir.", sem_ean.item) }))).into_response();
         }
 
+        // Regra de negócio: o preço de compra do produto deve refletir o
+        // valor unitário do pedido mais atual. Valores zerados/negativos
+        // indicam divergência e bloqueiam a conclusão (422).
+        if let Some(item_invalido) = itens.iter().find(|i| i.valor_unitario <= BigDecimal::zero()) {
+            return (StatusCode::UNPROCESSABLE_ENTITY, Json(serde_json::json!({ "error": format!("O item '{}' possui valor unitário de compra inválido (deve ser maior que zero). Corrija o pedido antes de concluir.", item_invalido.item) }))).into_response();
+        }
+        // Quantidade recebida negativa indica divergência de conferência.
+        if let Some(item_qtd) = itens.iter().find(|i| i.quantidade_recebida.unwrap_or(i.quantidade) < 0) {
+            return (StatusCode::UNPROCESSABLE_ENTITY, Json(serde_json::json!({ "error": format!("O item '{}' possui quantidade recebida negativa. Corrija a conferência antes de concluir.", item_qtd.item) }))).into_response();
+        }
+
         let resultado = conn.transaction::<PedidoCompra, diesel::result::Error, _>(|conn| {
             let pedido_atualizado = diesel::update(pedidos_compra::table.find(id))
                 .set((
@@ -501,9 +541,16 @@ pub async fn update_status_envio_handler(
 
                 match existente {
                     Some(_) => {
+                        // Produto existente: soma o estoque E atualiza o
+                        // preco_compra para o valor unitário mais recente do
+                        // pedido. O preco_venda é recalculado sozinho pelo
+                        // banco (coluna gerada). Tudo dentro da mesma
+                        // transação: idempotente (CONCLUIDO só ocorre uma vez)
+                        // e atômico.
                         diesel::update(produtos::table.filter(produtos::ean.eq(&ean)))
                             .set((
                                 produtos::quantidade_estoque.eq(produtos::quantidade_estoque + qtd_recebida),
+                                produtos::preco_compra.eq(&item.valor_unitario),
                                 produtos::updated_at.eq(Utc::now().naive_utc()),
                             ))
                             .execute(conn)?;
@@ -622,5 +669,37 @@ pub async fn salvar_conferencia_handler(
     match resultado {
         Ok(lista) => (StatusCode::OK, Json(lista)).into_response(),
         Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, format!("Erro ao salvar conferência: {}", e)).into_response(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::models::pedido_model::CreatePedidoItemInput;
+
+    fn item(nome: &str, qtd: i32, valor: i64) -> CreatePedidoItemInput {
+        CreatePedidoItemInput {
+            item: nome.to_string(),
+            ean: Some("1234567890123".to_string()),
+            quantidade: qtd,
+            valor_unitario: BigDecimal::from(valor),
+        }
+    }
+
+    #[test]
+    fn rejeita_pedido_sem_itens() {
+        assert!(validar_itens_pedido(&[]).is_err());
+    }
+
+    #[test]
+    fn rejeita_valor_unitario_zero_ou_negativo() {
+        assert!(validar_itens_pedido(&[item("A", 1, 0)]).is_err());
+        assert!(validar_itens_pedido(&[item("A", 1, -5)]).is_err());
+        assert!(validar_itens_pedido(&[item("A", 2, 10)]).is_ok());
+    }
+
+    #[test]
+    fn rejeita_quantidade_nao_positiva() {
+        assert!(validar_itens_pedido(&[item("A", 0, 10)]).is_err());
     }
 }

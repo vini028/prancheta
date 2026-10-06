@@ -50,5 +50,6 @@ pub fn create_router() -> Router<Arc<DbPool>> {
 
         // Rotas de produtos/inventário (leitura: ADMIN, BUYER, SELLER — escrita: apenas ADMIN)
         .route("/api/produtos", post(handlers::produto_handler::create_produto_handler).get(handlers::produto_handler::list_produtos_handler))
+        .route("/api/produtos/entrada", post(handlers::produto_handler::entrada_estoque_handler))
         .route("/api/produtos/:id", put(handlers::produto_handler::update_produto_handler).delete(handlers::produto_handler::delete_produto_handler))
 }

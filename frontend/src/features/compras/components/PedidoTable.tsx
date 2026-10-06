@@ -232,7 +232,7 @@ export const PedidoTable: React.FC<PedidoTableProps> = ({ pedidos, fornecedores,
     const proximo = p.status_envio ? PROXIMA_ETAPA[p.status_envio] : undefined;
     if (!proximo) return;
     const concluir = proximo === 'CONCLUIDO';
-    if (concluir && !confirm('Concluir o pedido? Os itens subirão para o estoque.')) return;
+    if (concluir && !confirm('Concluir o pedido? As quantidades recebidas entrarão no estoque e o preço de compra dos produtos será atualizado com o valor unitário deste pedido (venda = compra × 1,30).')) return;
     try {
       await atualizarStatusEnvioApi(p.id, proximo);
       showToast(

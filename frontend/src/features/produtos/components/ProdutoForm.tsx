@@ -30,8 +30,8 @@ export const ProdutoForm: React.FC<ProdutoFormProps> = ({ onSuccess, produto }) 
       showToast('Informe o EAN do produto (13 dígitos).', 'error');
       return;
     }
-    if (Number(precoCompra) < 0 || precoCompra === '') {
-      showToast('Informe um preço de compra válido.', 'error');
+    if (precoCompra === '' || Number(precoCompra) <= 0) {
+      showToast('Informe um preço de compra maior que zero.', 'error');
       return;
     }
     if (quantidade < 0) {
@@ -94,12 +94,13 @@ export const ProdutoForm: React.FC<ProdutoFormProps> = ({ onSuccess, produto }) 
           <Input
             label="Preço de Compra (R$)"
             type="number"
-            min={0}
+            min={0.01}
             step="0.01"
             value={precoCompra}
             onChange={(e) => setPrecoCompra(e.target.value)}
             required
             fullWidth
+            placeholder="Ex.: 10.50"
           />
           <Input
             label="Qtd. em estoque"
@@ -111,6 +112,15 @@ export const ProdutoForm: React.FC<ProdutoFormProps> = ({ onSuccess, produto }) 
             fullWidth
           />
         </div>
+        <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginBottom: 'var(--space-3)' }}>
+          O preço de venda é recalculado automaticamente pelo banco (compra × 1,30).
+          {precoCompra !== '' && Number(precoCompra) > 0 && (
+            <> Preço de venda previsto: <strong>R$ {(Number(precoCompra) * 1.3).toFixed(2)}</strong>.</>
+          )}
+          {produto && (
+            <> Ao registrar nova carga com outro valor, o preço de compra é atualizado para o mais recente.</>
+          )}
+        </p>
         <Button type="submit" isLoading={loading} loadingText="Salvando...">
           {produto ? 'Atualizar produto' : 'Salvar produto'}
         </Button>

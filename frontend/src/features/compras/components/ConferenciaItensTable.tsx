@@ -111,6 +111,7 @@ export const ConferenciaItensTable: React.FC<ConferenciaItensTableProps> = ({
           <tr style={{ textAlign: 'left', borderBottom: '1px solid var(--border)' }}>
             <th style={{ padding: '8px' }}>Item</th>
             <th style={{ padding: '8px' }}>Qtd. pedida</th>
+            <th style={{ padding: '8px' }}>Valor Unit. Compra</th>
             <th style={{ padding: '8px' }}>Qtd. recebida</th>
             <th style={{ padding: '8px' }}>Avaliação</th>
             <th style={{ padding: '8px' }}>Observação</th>
@@ -130,6 +131,9 @@ export const ConferenciaItensTable: React.FC<ConferenciaItensTableProps> = ({
                   </div>
                 </td>
                 <td style={{ padding: '8px' }}>{item.quantidade}</td>
+                <td style={{ padding: '8px', whiteSpace: 'nowrap' }}>
+                  R$ {Number(item.valor_unitario).toFixed(2)}
+                </td>
                 <td style={{ padding: '8px', minWidth: '110px' }}>
                   <Input
                     type="number"
