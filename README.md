@@ -14,6 +14,8 @@ O **Prancheta** é um sistema completo para gestão de papelarias, desenvolvido 
 * **Front-end:** React, Vite, TypeScript, CSS Modules
 * **Back-end:** Rust, Axum, Diesel ORM, JWT Authentication
 * **Banco de Dados:** PostgreSQL
+
+> **Nota de robustez:** as rotas do back-end respondem com `503 Service Unavailable` (JSON `{ "error": "Serviço indisponível temporariamente" }`) quando a pool de conexões esgota ou o banco está indisponível, e erros internos do banco nunca são expostos ao cliente (mensagem genérica 500 com detalhes registrados no servidor).
 * **Infraestrutura:** Docker, Docker Compose
 
 ---
@@ -50,6 +52,13 @@ O sistema é protegido por autenticação JWT e segmentado em três níveis de p
 - [Git](https://git-scm.com/);
 - [Docker](https://www.docker.com/);
 - [Docker Compose](https://docs.docker.com/compose/).
+
+### Variáveis de ambiente obrigatórias
+
+O back-end exige as variáveis do [`backend/.env.exemplo`](backend/.env.exemplo), copiadas para um arquivo `backend/.env`:
+
+- `JWT_SECRET` é **obrigatória**: sem ela o servidor não inicia (falha com panic na inicialização), pois o segredo assina e valida todos os tokens JWT.
+- Contas desativadas (`is_active = false`) são bloqueadas **não apenas no login**, mas em **todas as requisições**: o middleware de autenticação consulta o banco em cada chamada e rejeita usuários inativos com `403 Forbidden`.
 
 ### 1. Clonar o repositório
 

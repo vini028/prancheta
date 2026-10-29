@@ -67,15 +67,19 @@ pub async fn list_users_handler(
         return (
             StatusCode::FORBIDDEN,
             Json(json!({ "error": "Acesso negado: requer role ADMIN" })),
-        );
+        )
+            .into_response();
     }
 
-    let mut conn = db::get_connection(&pool);
+    let mut conn = match db::conn_or_503(&pool) {
+        Ok(c) => c,
+        Err(r) => return r,
+    };
 
     match users.load::<User>(&mut conn) {
         Ok(user_list) => {
             let response: Vec<UserResponse> = user_list.into_iter().map(|u| u.into()).collect();
-            (StatusCode::OK, Json(json!(response)))
+            (StatusCode::OK, Json(json!(response))).into_response()
         }
         Err(e) => {
             eprintln!("Erro ao listar usuários: {}", e);
@@ -83,6 +87,7 @@ pub async fn list_users_handler(
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(json!({ "error": "Erro ao buscar usuários" })),
             )
+                .into_response()
         }
     }
 }
@@ -101,7 +106,8 @@ pub async fn update_role_handler(
         return (
             StatusCode::FORBIDDEN,
             Json(json!({ "error": "Acesso negado: requer role ADMIN" })),
-        );
+        )
+            .into_response();
     }
 
     // Valida a nova role (apenas ADMIN, BUYER, SELLER)
@@ -111,7 +117,8 @@ pub async fn update_role_handler(
         return (
             StatusCode::BAD_REQUEST,
             Json(json!({ "error": "Role inválida. Use ADMIN, BUYER ou SELLER" })),
-        );
+        )
+            .into_response();
     }
 
     // Impede que o próprio ADMIN rebaixe a si mesmo (opcional, mas recomendado)
@@ -119,10 +126,14 @@ pub async fn update_role_handler(
         return (
             StatusCode::BAD_REQUEST,
             Json(json!({ "error": "Não é possível alterar sua própria role" })),
-        );
+        )
+            .into_response();
     }
 
-    let mut conn = db::get_connection(&pool);
+    let mut conn = match db::conn_or_503(&pool) {
+        Ok(c) => c,
+        Err(r) => return r,
+    };
 
     // Atualiza a role do usuário
     match diesel::update(users.filter(id.eq(user_id)))
@@ -132,17 +143,20 @@ pub async fn update_role_handler(
     {
         Ok(updated_user) => {
             let response = UserResponse::from(updated_user);
-            (StatusCode::OK, Json(json!(response)))
+            (StatusCode::OK, Json(json!(response))).into_response()
         }
-        Err(diesel::NotFound) => {
-            (StatusCode::NOT_FOUND, Json(json!({ "error": "Usuário não encontrado" })))
-        }
+        Err(diesel::NotFound) => (
+            StatusCode::NOT_FOUND,
+            Json(json!({ "error": "Usuário não encontrado" })),
+        )
+            .into_response(),
         Err(e) => {
             eprintln!("Erro ao atualizar role: {}", e);
             (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(json!({ "error": "Erro ao atualizar role" })),
             )
+                .into_response()
         }
     }
 }
@@ -162,7 +176,8 @@ pub async fn toggle_user_active_handler(
         return (
             StatusCode::FORBIDDEN,
             Json(json!({ "error": "Acesso negado: requer role ADMIN" })),
-        );
+        )
+            .into_response();
     }
 
     // Impede que o próprio ADMIN desative a si mesmo
@@ -170,10 +185,14 @@ pub async fn toggle_user_active_handler(
         return (
             StatusCode::BAD_REQUEST,
             Json(json!({ "error": "Não é possível desativar sua própria conta" })),
-        );
+        )
+            .into_response();
     }
 
-    let mut conn = db::get_connection(&pool);
+    let mut conn = match db::conn_or_503(&pool) {
+        Ok(c) => c,
+        Err(r) => return r,
+    };
 
     match diesel::update(users.filter(id.eq(user_id)))
         .set(is_active.eq(payload.is_active))
@@ -182,17 +201,20 @@ pub async fn toggle_user_active_handler(
     {
         Ok(updated_user) => {
             let response = UserResponse::from(updated_user);
-            (StatusCode::OK, Json(json!(response)))
+            (StatusCode::OK, Json(json!(response))).into_response()
         }
-        Err(diesel::NotFound) => {
-            (StatusCode::NOT_FOUND, Json(json!({ "error": "Usuário não encontrado" })))
-        }
+        Err(diesel::NotFound) => (
+            StatusCode::NOT_FOUND,
+            Json(json!({ "error": "Usuário não encontrado" })),
+        )
+            .into_response(),
         Err(e) => {
             eprintln!("Erro ao atualizar status ativo: {}", e);
             (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(json!({ "error": "Erro ao atualizar status do usuário" })),
             )
+                .into_response()
         }
     }
 }
@@ -210,7 +232,8 @@ pub async fn delete_user_handler(
         return (
             StatusCode::FORBIDDEN,
             Json(json!({ "error": "Acesso negado: requer role ADMIN" })),
-        );
+        )
+            .into_response();
     }
 
     // Impede que o próprio ADMIN se exclua
@@ -218,23 +241,30 @@ pub async fn delete_user_handler(
         return (
             StatusCode::BAD_REQUEST,
             Json(json!({ "error": "Não é possível excluir a si mesmo" })),
-        );
+        )
+            .into_response();
     }
 
-    let mut conn = db::get_connection(&pool);
+    let mut conn = match db::conn_or_503(&pool) {
+        Ok(c) => c,
+        Err(r) => return r,
+    };
 
     match diesel::delete(users.filter(id.eq(user_id))).execute(&mut conn) {
         Ok(rows_deleted) if rows_deleted > 0 => {
-            (StatusCode::NO_CONTENT, Json(json!({}))) // 204 sem corpo
+            (StatusCode::NO_CONTENT, Json(json!({}))).into_response() // 204 sem corpo
         }
-        Ok(_) => {
-            (StatusCode::NOT_FOUND, Json(json!({ "error": "Usuário não encontrado" })))
-        }
+        Ok(_) => (
+            StatusCode::NOT_FOUND,
+            Json(json!({ "error": "Usuário não encontrado" })),
+        )
+            .into_response(),
         Err(diesel::result::Error::DatabaseError(diesel::result::DatabaseErrorKind::ForeignKeyViolation, _)) => {
             (
                 StatusCode::CONFLICT,
                 Json(json!({ "error": "Não é possível excluir: existem registros (pedidos/vendas) vinculados a este usuário. Desative o usuário em vez de excluir." })),
             )
+                .into_response()
         }
         Err(e) => {
             eprintln!("Erro ao excluir usuário: {}", e);
@@ -242,6 +272,7 @@ pub async fn delete_user_handler(
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(json!({ "error": "Erro ao excluir usuário" })),
             )
+                .into_response()
         }
     }
 }
@@ -261,10 +292,14 @@ pub async fn update_password_handler(
             Json(json!({
                 "error": "A nova senha não atende aos requisitos de segurança (mínimo 8 caracteres, contendo letra maiúscula, minúscula e número)"
             })),
-        );
+        )
+            .into_response();
     }
 
-    let mut conn = db::get_connection(&pool);
+    let mut conn = match db::conn_or_503(&pool) {
+        Ok(c) => c,
+        Err(r) => return r,
+    };
 
     // 2. Busca o usuário atual no banco de dados
     let user_record = match users
@@ -276,14 +311,16 @@ pub async fn update_password_handler(
             return (
                 StatusCode::NOT_FOUND,
                 Json(json!({ "error": "Usuário não encontrado" })),
-            );
+            )
+                .into_response();
         }
         Err(e) => {
             eprintln!("Erro ao buscar usuário: {}", e);
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(json!({ "error": "Erro ao processar a requisição" })),
-            );
+            )
+                .into_response();
         }
     };
 
@@ -292,7 +329,8 @@ pub async fn update_password_handler(
         return (
             StatusCode::BAD_REQUEST,
             Json(json!({ "error": "A senha atual incorreta" })),
-        );
+        )
+            .into_response();
     }
 
     // 4. Gera o novo hash para a nova senha
@@ -303,7 +341,8 @@ pub async fn update_password_handler(
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(json!({ "error": "Erro ao processar a nova senha" })),
-            );
+            )
+                .into_response();
         }
     };
 
@@ -315,13 +354,15 @@ pub async fn update_password_handler(
         Ok(_) => (
             StatusCode::OK,
             Json(json!({ "message": "Senha alterada com sucesso!" })),
-        ),
+        )
+            .into_response(),
         Err(e) => {
             eprintln!("Erro ao atualizar a senha no banco: {}", e);
             (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(json!({ "error": "Erro ao salvar a nova senha" })),
             )
+                .into_response()
         }
     }
 }

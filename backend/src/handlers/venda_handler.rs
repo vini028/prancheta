@@ -7,7 +7,7 @@ use chrono::Utc;
 use bigdecimal::{BigDecimal, Zero};
 
 use crate::{
-    db::DbPool,
+    db::{conn_or_503, DbPool},
     auth::middleware::{AuthenticatedUser, require_role},
     money::{arredondar_2, percentual, zero2},
     models::produto_model::Produto,
@@ -72,7 +72,10 @@ pub async fn checkout_venda_handler(
         }
     }
 
-    let mut conn = pool.get().expect("Erro ao obter conexão do pool");
+    let mut conn = match conn_or_503(&pool) {
+        Ok(c) => c,
+        Err(r) => return r,
+    };
 
     let resultado = conn.transaction::<CheckoutVendaResponse, CheckoutFail, _>(|conn| {
         // Cliente informado precisa existir (None = não identificado, sem desconto).
@@ -225,7 +228,10 @@ pub async fn checkout_venda_handler(
     match resultado {
         Ok(resp) => (StatusCode::CREATED, Json(resp)).into_response(),
         Err(CheckoutFail::Negocio { status, msg }) => (status, Json(serde_json::json!({ "error": msg }))).into_response(),
-        Err(CheckoutFail::Diesel(e)) => (StatusCode::INTERNAL_SERVER_ERROR, format!("Erro ao registrar venda: {}", e)).into_response(),
+        Err(CheckoutFail::Diesel(e)) => {
+            eprintln!("Erro ao registrar venda: {}", e);
+            (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({ "error": "Erro interno ao processar a requisição." }))).into_response()
+        }
     }
 }
 
@@ -239,7 +245,10 @@ pub async fn list_vendas_handler(
         return response;
     }
 
-    let mut conn = pool.get().expect("Erro ao obter conexão do pool");
+    let mut conn = match conn_or_503(&pool) {
+        Ok(c) => c,
+        Err(r) => return r,
+    };
 
     let mut query = vendas::table
         .inner_join(users::table)
@@ -270,7 +279,10 @@ pub async fn list_vendas_handler(
             })).collect();
             Json(resp).into_response()
         }
-        Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, format!("Erro ao listar vendas: {}", e)).into_response(),
+        Err(e) => {
+            eprintln!("Erro ao listar vendas: {}", e);
+            (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({ "error": "Erro interno ao processar a requisição." }))).into_response()
+        }
     }
 }
 
@@ -286,7 +298,10 @@ pub async fn get_venda_handler(
         return response;
     }
 
-    let mut conn = pool.get().expect("Erro ao obter conexão do pool");
+    let mut conn = match conn_or_503(&pool) {
+        Ok(c) => c,
+        Err(r) => return r,
+    };
 
     let venda = match vendas::table
         .find(id)
@@ -295,7 +310,10 @@ pub async fn get_venda_handler(
     {
         Ok(v) => v,
         Err(diesel::result::Error::NotFound) => return (StatusCode::NOT_FOUND, Json(serde_json::json!({ "error": "Venda não encontrada." }))).into_response(),
-        Err(e) => return (StatusCode::INTERNAL_SERVER_ERROR, format!("Erro ao buscar venda: {}", e)).into_response(),
+        Err(e) => {
+            eprintln!("Erro ao buscar venda: {}", e);
+            return (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({ "error": "Erro interno ao processar a requisição." }))).into_response();
+        }
     };
 
     // Ownership: vendedor não espia a venda do colega (nem por ID direto).
@@ -309,7 +327,10 @@ pub async fn get_venda_handler(
         .first::<String>(&mut conn)
     {
         Ok(n) => n,
-        Err(e) => return (StatusCode::INTERNAL_SERVER_ERROR, format!("Erro ao buscar vendedor da venda: {}", e)).into_response(),
+        Err(e) => {
+            eprintln!("Erro ao buscar vendedor da venda: {}", e);
+            return (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({ "error": "Erro interno ao processar a requisição." }))).into_response();
+        }
     };
 
     let cliente_nome: Option<String> = match venda.cliente_id {
@@ -320,7 +341,10 @@ pub async fn get_venda_handler(
             .optional()
         {
             Ok(n) => n,
-            Err(e) => return (StatusCode::INTERNAL_SERVER_ERROR, format!("Erro ao buscar cliente da venda: {}", e)).into_response(),
+            Err(e) => {
+                eprintln!("Erro ao buscar cliente da venda: {}", e);
+                return (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({ "error": "Erro interno ao processar a requisição." }))).into_response();
+            }
         },
         None => None,
     };
@@ -332,7 +356,10 @@ pub async fn get_venda_handler(
         .load::<(ItemVenda, String)>(&mut conn)
     {
         Ok(lista) => lista,
-        Err(e) => return (StatusCode::INTERNAL_SERVER_ERROR, format!("Erro ao buscar itens da venda: {}", e)).into_response(),
+        Err(e) => {
+            eprintln!("Erro ao buscar itens da venda: {}", e);
+            return (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({ "error": "Erro interno ao processar a requisição." }))).into_response();
+        }
     };
 
     // Recompõe o detalhamento dos descontos a partir dos totais persistidos.

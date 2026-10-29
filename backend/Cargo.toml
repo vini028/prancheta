@@ -1,3 +1,4 @@
+# Variável de ambiente OBRIGATÓRIA: JWT_SECRET (o backend não sobe sem ela — ver README.md).
 [package]
 name = "backend"
 version = "0.1.0"

@@ -6,11 +6,12 @@ use bigdecimal::{BigDecimal, Zero};
 
 use crate::{
     auth::middleware::{AuthenticatedUser, require_role},
-    db::DbPool,
+    db::{conn_or_503, DbPool},
     models::pedido_model::{CreatePedidoInput, CreatePedidoItemInput, NewPedidoCompra, NewPedidoItem, PedidoCompra, PedidoCompraResponse, PedidoItem, UpdatePedidoInput, UpdateStatusEnvioInput, ConferenciaPedidoInput},
     models::produto_model::{NewProduto, Produto},
     schema::{pedido_itens, pedidos_compra, produtos, users},
 };
+use uuid::Uuid;
 
 /// Valida os itens do pedido antes de persistir: quantidade positiva e
 /// valor unitário de compra maior que zero (nulos/divergências viram 400).
@@ -32,6 +33,23 @@ fn validar_itens_pedido(itens: &[CreatePedidoItemInput]) -> Result<(), String> {
     Ok(())
 }
 
+/// Regra pura de permissão sobre um pedido de compra: ADMIN age em qualquer
+/// pedido; BUYER somente nos próprios; qualquer outro papel (p.ex. SELLER)
+/// nunca. `user.0.role == "BUYER" && p.comprador_id != user.0.sub` é o caso
+/// de negação.
+fn pode_alterar_pedido(role: &str, comprador_id: Uuid, user_id: Uuid) -> bool {
+    role == "ADMIN" || (role == "BUYER" && comprador_id == user_id)
+}
+
+/// Regra pura de exclusão: exige a permissão de `pode_alterar_pedido` e, no
+/// caso do BUYER, veda ainda excluir pedidos APROVADOS (somente o ADMIN pode).
+fn pode_excluir_pedido(role: &str, status: &str, comprador_id: Uuid, user_id: Uuid) -> bool {
+    if !pode_alterar_pedido(role, comprador_id, user_id) {
+        return false;
+    }
+    !(role == "BUYER" && status == "APROVADO")
+}
+
 pub async fn create_pedido_handler(
     State(pool): State<Arc<DbPool>>,
     user: AuthenticatedUser,
@@ -45,7 +63,10 @@ pub async fn create_pedido_handler(
         return (StatusCode::BAD_REQUEST, Json(serde_json::json!({ "error": msg }))).into_response();
     }
 
-    let mut conn = pool.get().expect("Erro ao obter conexão do pool");
+    let mut conn = match conn_or_503(&pool) {
+        Ok(c) => c,
+        Err(r) => return r,
+    };
 
     let novo_pedido = conn.transaction::<PedidoCompra, diesel::result::Error, _>(|conn| {
         let pedido = diesel::insert_into(pedidos_compra::table)
@@ -73,7 +94,10 @@ pub async fn create_pedido_handler(
 
     match novo_pedido {
         Ok(pedido) => (StatusCode::CREATED, Json(pedido)).into_response(),
-        Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, format!("Erro ao criar pedido: {}", e)).into_response(),
+        Err(e) => {
+            eprintln!("Erro ao criar pedido: {}", e);
+            (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({ "error": "Erro interno ao processar a requisição." }))).into_response()
+        }
     }
 }
 
@@ -85,7 +109,10 @@ pub async fn list_pedidos_handler(
         return response;
     }
 
-    let mut conn = pool.get().expect("Erro ao obter conexão do pool");
+    let mut conn = match conn_or_503(&pool) {
+        Ok(c) => c,
+        Err(r) => return r,
+    };
 
     let lista = pedidos_compra::table
         .inner_join(users::table)
@@ -107,7 +134,10 @@ pub async fn list_pedidos_handler(
             }).collect();
             Json(response).into_response()
         }
-        Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, format!("Erro ao listar pedidos: {}", e)).into_response(),
+        Err(e) => {
+            eprintln!("Erro ao listar pedidos: {}", e);
+            (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({ "error": "Erro interno ao processar a requisição." }))).into_response()
+        }
     }
 }
 
@@ -121,7 +151,10 @@ pub async fn update_pedido_handler(
         return response;
     }
 
-    let mut conn = pool.get().expect("Erro ao obter conexão do pool");
+    let mut conn = match conn_or_503(&pool) {
+        Ok(c) => c,
+        Err(r) => return r,
+    };
 
     let pedido_atual = pedidos_compra::table
         .find(id)
@@ -130,9 +163,12 @@ pub async fn update_pedido_handler(
 
     match pedido_atual {
         Err(diesel::result::Error::NotFound) => return StatusCode::NOT_FOUND.into_response(),
-        Err(e) => return (StatusCode::INTERNAL_SERVER_ERROR, format!("Erro ao buscar pedido: {}", e)).into_response(),
+        Err(e) => {
+            eprintln!("Erro ao buscar pedido: {}", e);
+            return (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({ "error": "Erro interno ao processar a requisição." }))).into_response();
+        }
         Ok(p) => {
-            if user.0.role == "BUYER" && p.comprador_id != user.0.sub {
+            if !pode_alterar_pedido(&user.0.role, p.comprador_id, user.0.sub) {
                 return (StatusCode::FORBIDDEN, Json(serde_json::json!({ "error": "Você só pode editar seus próprios pedidos de compra." }))).into_response();
             }
             if p.status != "PENDENTE" {
@@ -173,7 +209,10 @@ pub async fn update_pedido_handler(
 
     match resultado {
         Ok(_) => StatusCode::NO_CONTENT.into_response(),
-        Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, format!("Erro ao atualizar pedido: {}", e)).into_response(),
+        Err(e) => {
+            eprintln!("Erro ao atualizar pedido: {}", e);
+            (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({ "error": "Erro interno ao processar a requisição." }))).into_response()
+        }
     }
 }
 
@@ -186,18 +225,23 @@ pub async fn delete_pedido_handler(
         return response;
     }
 
-    let mut conn = pool.get().expect("Erro ao obter conexão do pool");
+    let mut conn = match conn_or_503(&pool) {
+        Ok(c) => c,
+        Err(r) => return r,
+    };
 
     let pedido = match buscar_pedido(&mut conn, id) {
         Ok(p) => p,
         Err(response) => return response,
     };
 
-    if user.0.role == "BUYER" && pedido.comprador_id != user.0.sub {
+    if !pode_alterar_pedido(&user.0.role, pedido.comprador_id, user.0.sub) {
         return (StatusCode::FORBIDDEN, Json(serde_json::json!({ "error": "Você só pode excluir seus próprios pedidos de compra." }))).into_response();
     }
 
-    if user.0.role == "BUYER" && pedido.status == "APROVADO" {
+    // Regra extraída: um BUYER não exclui pedidos APROVADOS (a ownership já
+    // foi garantida acima; aqui resta apenas a restrição de status).
+    if !pode_excluir_pedido(&user.0.role, &pedido.status, pedido.comprador_id, user.0.sub) {
         return (StatusCode::CONFLICT, Json(serde_json::json!({ "error": "Pedidos aprovados não podem ser excluídos por compradores." }))).into_response();
     }
 
@@ -211,7 +255,10 @@ pub async fn delete_pedido_handler(
     match resultado {
         Ok(count) if count > 0 => StatusCode::NO_CONTENT.into_response(),
         Ok(_) => StatusCode::NOT_FOUND.into_response(),
-        Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, format!("Erro ao excluir pedido: {}", e)).into_response(),
+        Err(e) => {
+            eprintln!("Erro ao excluir pedido: {}", e);
+            (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({ "error": "Erro interno ao processar a requisição." }))).into_response()
+        }
     }
 }
 
@@ -224,7 +271,10 @@ pub async fn get_pedido_itens_handler(
         return response;
     }
 
-    let mut conn = pool.get().expect("Erro ao obter conexão do pool");
+    let mut conn = match conn_or_503(&pool) {
+        Ok(c) => c,
+        Err(r) => return r,
+    };
 
     let itens = pedido_itens::table
         .filter(pedido_itens::pedido_id.eq(id))
@@ -232,7 +282,10 @@ pub async fn get_pedido_itens_handler(
 
     match itens {
         Ok(lista) => Json(lista).into_response(),
-        Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, format!("Erro ao buscar itens: {}", e)).into_response(),
+        Err(e) => {
+            eprintln!("Erro ao buscar itens do pedido: {}", e);
+            (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({ "error": "Erro interno ao processar a requisição." }))).into_response()
+        }
     }
 }
 
@@ -244,7 +297,10 @@ fn buscar_pedido(conn: &mut diesel::PgConnection, id: i32) -> Result<PedidoCompr
     {
         Ok(p) => Ok(p),
         Err(diesel::result::Error::NotFound) => Err((StatusCode::NOT_FOUND, Json(serde_json::json!({ "error": "Pedido não encontrado." }))).into_response()),
-        Err(e) => Err((StatusCode::INTERNAL_SERVER_ERROR, format!("Erro ao buscar pedido: {}", e)).into_response()),
+        Err(e) => {
+            eprintln!("Erro ao buscar pedido: {}", e);
+            Err((StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({ "error": "Erro interno ao processar a requisição." }))).into_response())
+        }
     }
 }
 
@@ -259,7 +315,10 @@ pub async fn aprovar_pedido_handler(
         return response;
     }
 
-    let mut conn = pool.get().expect("Erro ao obter conexão do pool");
+    let mut conn = match conn_or_503(&pool) {
+        Ok(c) => c,
+        Err(r) => return r,
+    };
 
     let pedido = match buscar_pedido(&mut conn, id) {
         Ok(p) => p,
@@ -279,7 +338,10 @@ pub async fn aprovar_pedido_handler(
         .get_result::<PedidoCompra>(&mut conn)
     {
         Ok(p) => (StatusCode::OK, Json(p)).into_response(),
-        Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, format!("Erro ao aprovar pedido: {}", e)).into_response(),
+        Err(e) => {
+            eprintln!("Erro ao aprovar pedido: {}", e);
+            (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({ "error": "Erro interno ao processar a requisição." }))).into_response()
+        }
     }
 }
 
@@ -294,7 +356,10 @@ pub async fn rejeitar_pedido_handler(
         return response;
     }
 
-    let mut conn = pool.get().expect("Erro ao obter conexão do pool");
+    let mut conn = match conn_or_503(&pool) {
+        Ok(c) => c,
+        Err(r) => return r,
+    };
 
     let pedido = match buscar_pedido(&mut conn, id) {
         Ok(p) => p,
@@ -313,7 +378,10 @@ pub async fn rejeitar_pedido_handler(
         .get_result::<PedidoCompra>(&mut conn)
     {
         Ok(p) => (StatusCode::OK, Json(p)).into_response(),
-        Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, format!("Erro ao rejeitar pedido: {}", e)).into_response(),
+        Err(e) => {
+            eprintln!("Erro ao rejeitar pedido: {}", e);
+            (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({ "error": "Erro interno ao processar a requisição." }))).into_response()
+        }
     }
 }
 
@@ -328,7 +396,10 @@ pub async fn cancelar_pedido_handler(
         return response;
     }
 
-    let mut conn = pool.get().expect("Erro ao obter conexão do pool");
+    let mut conn = match conn_or_503(&pool) {
+        Ok(c) => c,
+        Err(r) => return r,
+    };
 
     let pedido = match buscar_pedido(&mut conn, id) {
         Ok(p) => p,
@@ -352,7 +423,10 @@ pub async fn cancelar_pedido_handler(
         .get_result::<PedidoCompra>(&mut conn)
     {
         Ok(p) => (StatusCode::OK, Json(p)).into_response(),
-        Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, format!("Erro ao cancelar pedido: {}", e)).into_response(),
+        Err(e) => {
+            eprintln!("Erro ao cancelar pedido: {}", e);
+            (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({ "error": "Erro interno ao processar a requisição." }))).into_response()
+        }
     }
 }
 
@@ -396,7 +470,10 @@ pub async fn update_status_envio_handler(
         return (StatusCode::BAD_REQUEST, Json(serde_json::json!({ "error": "status_envio inválido. Valores aceitos: CONFIRMADO, ENVIADO, RECEBIDO, CONFERIDO, CONCLUIDO, COM_PROBLEMA." }))).into_response();
     }
 
-    let mut conn = pool.get().expect("Erro ao obter conexão do pool");
+    let mut conn = match conn_or_503(&pool) {
+        Ok(c) => c,
+        Err(r) => return r,
+    };
 
     let pedido = match buscar_pedido(&mut conn, id) {
         Ok(p) => p,
@@ -404,7 +481,7 @@ pub async fn update_status_envio_handler(
     };
 
     // BUYER só mexe no próprio pedido; ADMIN tem override sobre qualquer pedido.
-    if user.0.role == "BUYER" && pedido.comprador_id != user.0.sub {
+    if !pode_alterar_pedido(&user.0.role, pedido.comprador_id, user.0.sub) {
         return (StatusCode::FORBIDDEN, Json(serde_json::json!({ "error": "Você só pode atualizar o envio dos seus próprios pedidos." }))).into_response();
     }
 
@@ -452,7 +529,10 @@ pub async fn update_status_envio_handler(
             .select(PedidoItem::as_select())
             .load::<PedidoItem>(&mut conn)
         {
-            Err(e) => return (StatusCode::INTERNAL_SERVER_ERROR, format!("Erro ao buscar itens do pedido: {}", e)).into_response(),
+            Err(e) => {
+            eprintln!("Erro ao buscar itens do pedido: {}", e);
+            return (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({ "error": "Erro interno ao processar a requisição." }))).into_response();
+        }
             Ok(itens_conf) => {
                 if itens_conf.iter().any(|i| i.status_item == "PENDENTE") {
                     return (StatusCode::CONFLICT, Json(serde_json::json!({ "error": "Conferência incompleta: há itens ainda PENDENTES. Avalie todos os itens antes de avançar para CONFERIDO." }))).into_response();
@@ -472,7 +552,10 @@ pub async fn update_status_envio_handler(
             .load::<PedidoItem>(&mut conn)
         {
             Ok(lista) => lista,
-            Err(e) => return (StatusCode::INTERNAL_SERVER_ERROR, format!("Erro ao buscar itens do pedido: {}", e)).into_response(),
+            Err(e) => {
+            eprintln!("Erro ao buscar itens do pedido: {}", e);
+            return (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({ "error": "Erro interno ao processar a requisição." }))).into_response();
+        }
         };
 
         // Item sem EAN não pode subir ao estoque automaticamente.
@@ -550,7 +633,10 @@ pub async fn update_status_envio_handler(
 
         return match resultado {
             Ok(p) => (StatusCode::OK, Json(p)).into_response(),
-            Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, format!("Erro ao concluir pedido e atualizar estoque: {}", e)).into_response(),
+            Err(e) => {
+                eprintln!("Erro ao concluir pedido e atualizar estoque: {}", e);
+                (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({ "error": "Erro interno ao processar a requisição." }))).into_response()
+            }
         };
     }
 
@@ -565,7 +651,10 @@ pub async fn update_status_envio_handler(
         .get_result::<PedidoCompra>(&mut conn)
     {
         Ok(p) => (StatusCode::OK, Json(p)).into_response(),
-        Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, format!("Erro ao atualizar status de envio: {}", e)).into_response(),
+        Err(e) => {
+            eprintln!("Erro ao atualizar status de envio: {}", e);
+            (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({ "error": "Erro interno ao processar a requisição." }))).into_response()
+        }
     }
 }
 
@@ -581,7 +670,10 @@ pub async fn salvar_conferencia_handler(
         return response;
     }
 
-    let mut conn = pool.get().expect("Erro ao obter conexão do pool");
+    let mut conn = match conn_or_503(&pool) {
+        Ok(c) => c,
+        Err(r) => return r,
+    };
 
     let pedido = match buscar_pedido(&mut conn, id) {
         Ok(p) => p,
@@ -589,7 +681,7 @@ pub async fn salvar_conferencia_handler(
     };
 
     // BUYER só confere o próprio pedido; ADMIN tem override sobre qualquer pedido.
-    if user.0.role == "BUYER" && pedido.comprador_id != user.0.sub {
+    if !pode_alterar_pedido(&user.0.role, pedido.comprador_id, user.0.sub) {
         return (StatusCode::FORBIDDEN, Json(serde_json::json!({ "error": "Você só pode conferir os seus próprios pedidos." }))).into_response();
     }
 
@@ -643,7 +735,10 @@ pub async fn salvar_conferencia_handler(
 
     match resultado {
         Ok(lista) => (StatusCode::OK, Json(lista)).into_response(),
-        Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, format!("Erro ao salvar conferência: {}", e)).into_response(),
+        Err(e) => {
+            eprintln!("Erro ao salvar conferência: {}", e);
+            (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({ "error": "Erro interno ao processar a requisição." }))).into_response()
+        }
     }
 }
 
@@ -676,5 +771,49 @@ mod tests {
     #[test]
     fn rejeita_quantidade_nao_positiva() {
         assert!(validar_itens_pedido(&[item("A", 0, 10)]).is_err());
+    }
+
+    // ---- Regras de permissão (puras, sem banco) ----
+
+    #[test]
+    fn admin_altera_e_exclui_qualquer_pedido() {
+        let dono = Uuid::new_v4();
+        let admin = Uuid::new_v4();
+        assert!(pode_alterar_pedido("ADMIN", dono, admin));
+        assert!(pode_alterar_pedido("ADMIN", dono, dono));
+        assert!(pode_excluir_pedido("ADMIN", "APROVADO", dono, admin));
+        assert!(pode_excluir_pedido("ADMIN", "PENDENTE", dono, admin));
+    }
+
+    #[test]
+    fn buyer_agenda_somente_o_proprio_pedido() {
+        let proprio = Uuid::new_v4();
+        let alheio = Uuid::new_v4();
+        assert!(pode_alterar_pedido("BUYER", proprio, proprio));
+        assert!(!pode_alterar_pedido("BUYER", alheio, proprio));
+    }
+
+    #[test]
+    fn seller_nunca_altera_ou_exclui_pedidos() {
+        let dono = Uuid::new_v4();
+        assert!(!pode_alterar_pedido("SELLER", dono, dono));
+        assert!(!pode_excluir_pedido("SELLER", "PENDENTE", dono, dono));
+    }
+
+    #[test]
+    fn buyer_nao_exclui_pedido_aprovado() {
+        let proprio = Uuid::new_v4();
+        assert!(!pode_excluir_pedido("BUYER", "APROVADO", proprio, proprio));
+        assert!(pode_excluir_pedido("BUYER", "PENDENTE", proprio, proprio));
+        assert!(pode_excluir_pedido("BUYER", "REJEITADO", proprio, proprio));
+        assert!(pode_excluir_pedido("BUYER", "CANCELADO", proprio, proprio));
+    }
+
+    #[test]
+    fn buyer_nao_exclui_pedido_aprovado_de_outro() {
+        let proprio = Uuid::new_v4();
+        let alheio = Uuid::new_v4();
+        assert!(!pode_excluir_pedido("BUYER", "APROVADO", alheio, proprio));
+        assert!(!pode_excluir_pedido("BUYER", "PENDENTE", alheio, proprio));
     }
 }

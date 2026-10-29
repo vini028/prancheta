@@ -5,7 +5,7 @@ use chrono::Utc;
 use bigdecimal::{BigDecimal, Zero};
 
 use crate::{
-    db::DbPool,
+    db::{conn_or_503, DbPool},
     auth::middleware::{AuthenticatedUser, require_role},
     models::produto_model::{Produto, NewProduto, UpdateProduto, EntradaEstoqueInput, preco_venda_padrao},
     schema::produtos,
@@ -53,7 +53,10 @@ pub async fn create_produto_handler(
         return (StatusCode::BAD_REQUEST, Json(serde_json::json!({ "error": "Nome do produto é obrigatório." }))).into_response();
     }
 
-    let mut conn = pool.get().expect("Erro ao obter conexão do pool");
+    let mut conn = match conn_or_503(&pool) {
+        Ok(c) => c,
+        Err(r) => return r,
+    };
 
     // Valida EAN único antes de inserir.
     // Para dar entrada em produto existente (somar estoque + atualizar
@@ -69,7 +72,12 @@ pub async fn create_produto_handler(
             return (StatusCode::CONFLICT, Json(serde_json::json!({ "error": "Já existe um produto com este EAN. Use a entrada de estoque para atualizar preço e quantidade." }))).into_response();
         }
         Err(e) => {
-            return (StatusCode::INTERNAL_SERVER_ERROR, format!("Erro ao validar EAN: {}", e)).into_response();
+            eprintln!("Erro ao validar EAN: {}", e);
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(serde_json::json!({ "error": "Erro interno ao processar a requisição." })),
+            )
+                .into_response();
         }
         Ok(None) => {}
     }
@@ -85,7 +93,10 @@ pub async fn create_produto_handler(
         .get_result::<Produto>(&mut conn)
     {
         Ok(produto) => (StatusCode::CREATED, Json(produto)).into_response(),
-        Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, format!("Erro ao criar produto: {}", e)).into_response(),
+        Err(e) => {
+            eprintln!("Erro ao criar produto: {}", e);
+            (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({ "error": "Erro interno ao processar a requisição." }))).into_response()
+        }
     }
 }
 
@@ -97,14 +108,20 @@ pub async fn list_produtos_handler(
         return response;
     }
 
-    let mut conn = pool.get().expect("Erro ao obter conexão do pool");
+    let mut conn = match conn_or_503(&pool) {
+        Ok(c) => c,
+        Err(r) => return r,
+    };
 
     match produtos::table
         .select(Produto::as_select())
         .load::<Produto>(&mut conn)
     {
         Ok(lista) => Json(lista).into_response(),
-        Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, format!("Erro ao listar produtos: {}", e)).into_response(),
+        Err(e) => {
+            eprintln!("Erro ao listar produtos: {}", e);
+            (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({ "error": "Erro interno ao processar a requisição." }))).into_response()
+        }
     }
 }
 
@@ -141,7 +158,10 @@ pub async fn update_produto_handler(
         }
     }
 
-    let mut conn = pool.get().expect("Erro ao obter conexão do pool");
+    let mut conn = match conn_or_503(&pool) {
+        Ok(c) => c,
+        Err(r) => return r,
+    };
 
     match diesel::update(produtos::table.find(id))
         .set((
@@ -152,7 +172,10 @@ pub async fn update_produto_handler(
     {
         Ok(produto) => (StatusCode::OK, Json(produto)).into_response(),
         Err(diesel::result::Error::NotFound) => (StatusCode::NOT_FOUND, Json(serde_json::json!({ "error": "Produto não encontrado." }))).into_response(),
-        Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, format!("Erro ao atualizar produto: {}", e)).into_response(),
+        Err(e) => {
+            eprintln!("Erro ao atualizar produto: {}", e);
+            (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({ "error": "Erro interno ao processar a requisição." }))).into_response()
+        }
     }
 }
 
@@ -165,7 +188,10 @@ pub async fn delete_produto_handler(
         return response;
     }
 
-    let mut conn = pool.get().expect("Erro ao obter conexão do pool");
+    let mut conn = match conn_or_503(&pool) {
+        Ok(c) => c,
+        Err(r) => return r,
+    };
 
     match diesel::delete(produtos::table.find(id)).execute(&mut conn) {
         Ok(count) if count > 0 => StatusCode::NO_CONTENT.into_response(),
@@ -173,7 +199,10 @@ pub async fn delete_produto_handler(
         Err(diesel::result::Error::DatabaseError(diesel::result::DatabaseErrorKind::ForeignKeyViolation, _)) => {
             (StatusCode::CONFLICT, Json(serde_json::json!({ "error": "Não é possível excluir: existem vendas vinculadas a este produto." }))).into_response()
         }
-        Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, format!("Erro ao excluir produto: {}", e)).into_response(),
+        Err(e) => {
+            eprintln!("Erro ao excluir produto: {}", e);
+            (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({ "error": "Erro interno ao processar a requisição." }))).into_response()
+        }
     }
 }
 
@@ -205,7 +234,10 @@ pub async fn entrada_estoque_handler(
         return (StatusCode::BAD_REQUEST, Json(serde_json::json!({ "error": "Informe o EAN ou o ID do produto para dar entrada no estoque." }))).into_response();
     }
 
-    let mut conn = pool.get().expect("Erro ao obter conexão do pool");
+    let mut conn = match conn_or_503(&pool) {
+        Ok(c) => c,
+        Err(r) => return r,
+    };
 
     let resultado = conn.transaction::<Produto, diesel::result::Error, _>(|conn| {
         // Localiza o produto por EAN (preferencial) ou por ID.
@@ -234,7 +266,10 @@ pub async fn entrada_estoque_handler(
     match resultado {
         Ok(produto) => (StatusCode::OK, Json(produto)).into_response(),
         Err(diesel::result::Error::NotFound) => (StatusCode::NOT_FOUND, Json(serde_json::json!({ "error": "Produto não encontrado para o EAN/ID informado." }))).into_response(),
-        Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, format!("Erro ao registrar entrada de estoque: {}", e)).into_response(),
+        Err(e) => {
+            eprintln!("Erro ao registrar entrada de estoque: {}", e);
+            (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({ "error": "Erro interno ao processar a requisição." }))).into_response()
+        }
     }
 }
 

@@ -29,7 +29,8 @@ pub async fn register_handler(
         return (
             StatusCode::BAD_REQUEST,
             Json(json!({ "error": "Role deve ser 'BUYER' ou 'SELLER'" })),
-        );
+        )
+            .into_response();
     }
 
     // 2. Validar senha
@@ -37,18 +38,23 @@ pub async fn register_handler(
         return (
             StatusCode::BAD_REQUEST,
             Json(json!({ "error": "Senha deve ter no mínimo 8 caracteres, incluindo maiúscula, minúscula e número" })),
-        );
+        )
+            .into_response();
     }
 
     if !validate_email(&payload.email) {
         return (
             StatusCode::BAD_REQUEST,
             Json(json!({ "error": "Formato de e-mail inválido" })),
-        );
+        )
+            .into_response();
     }
 
     // 3. Verificar se e-mail já existe
-    let mut conn = db::get_connection(&pool);
+    let mut conn = match db::conn_or_503(&pool) {
+        Ok(c) => c,
+        Err(r) => return r,
+    };
     let existing = users
         .filter(email.eq(&payload.email))
         .first::<User>(&mut conn)
@@ -58,7 +64,8 @@ pub async fn register_handler(
         return (
             StatusCode::CONFLICT,
             Json(json!({ "error": "E-mail já cadastrado" })),
-        );
+        )
+            .into_response();
     }
 
     // 4. Hash da senha (variável renomeada para evitar conflito)
@@ -69,7 +76,8 @@ pub async fn register_handler(
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(json!({ "error": "Erro ao processar senha" })),
-            );
+            )
+                .into_response();
         }
     };
 
@@ -95,7 +103,7 @@ pub async fn register_handler(
                 role: user.role,
                 created_at: user.created_at,
             };
-            (StatusCode::CREATED, Json(json!(response)))
+            (StatusCode::CREATED, Json(json!(response))).into_response()
         }
         Err(e) => {
             eprintln!("Erro ao inserir usuário: {}", e);
@@ -103,6 +111,7 @@ pub async fn register_handler(
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(json!({ "error": "Erro ao criar usuário" })),
             )
+                .into_response()
         }
     }
 }
@@ -114,7 +123,10 @@ pub async fn login_handler(
     State(pool): State<Arc<DbPool>>,
     Json(payload): Json<LoginRequest>,
 ) -> impl IntoResponse {
-    let mut conn = db::get_connection(&pool);
+    let mut conn = match db::conn_or_503(&pool) {
+        Ok(c) => c,
+        Err(r) => return r,
+    };
 
     // 1. Buscar usuário
     let user = match users
@@ -127,14 +139,16 @@ pub async fn login_handler(
             return (
                 StatusCode::UNAUTHORIZED,
                 Json(json!({ "error": "Credenciais inválidas" })),
-            );
+            )
+                .into_response();
         }
         Err(e) => {
             eprintln!("Erro ao buscar usuário: {}", e);
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(json!({ "error": "Erro ao processar login" })),
-            );
+            )
+                .into_response();
         }
     };
 
@@ -143,7 +157,8 @@ pub async fn login_handler(
         return (
             StatusCode::UNAUTHORIZED,
             Json(json!({ "error": "Credenciais inválidas" })),
-        );
+        )
+            .into_response();
     }
 
     // 2.1. Bloquear login de contas desativadas
@@ -151,7 +166,8 @@ pub async fn login_handler(
         return (
             StatusCode::FORBIDDEN,
             Json(json!({ "error": "Conta desativada. Entre em contato com o administrador." })),
-        );
+        )
+            .into_response();
     }
 
     // 3. Gerar JWT
@@ -162,7 +178,8 @@ pub async fn login_handler(
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(json!({ "error": "Erro ao gerar token" })),
-            );
+            )
+                .into_response();
         }
     };
 
@@ -172,7 +189,7 @@ pub async fn login_handler(
         role: user.role,
     };
 
-    (StatusCode::OK, Json(json!(response)))
+    (StatusCode::OK, Json(json!(response))).into_response()
 }
 
 // ------------------------
@@ -180,14 +197,39 @@ pub async fn login_handler(
 // ------------------------
 pub async fn me_handler(
     auth_user: AuthenticatedUser,
+    State(pool): State<Arc<DbPool>>,
 ) -> impl IntoResponse {
     let claims = auth_user.0;
-    Json(json!({
-        "id": claims.sub,
-        "name": claims.name,
-        "email": claims.email,
-        "role": claims.role
-    }))
+
+    let mut conn = match db::conn_or_503(&pool) {
+        Ok(c) => c,
+        Err(r) => return r,
+    };
+
+    // name/email/role vêm do registro do banco (fonte de verdade), não das
+    // claims do JWT, que podem estar desatualizadas.
+    match users.filter(id.eq(claims.sub)).first::<User>(&mut conn) {
+        Ok(user) => Json(json!({
+            "id": user.id,
+            "name": user.name,
+            "email": user.email,
+            "role": user.role
+        }))
+        .into_response(),
+        Err(diesel::result::Error::NotFound) => (
+            StatusCode::UNAUTHORIZED,
+            Json(json!({ "error": "Usuário não encontrado ou token inválido" })),
+        )
+            .into_response(),
+        Err(e) => {
+            eprintln!("Erro ao buscar usuário: {}", e);
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({ "error": "Erro interno ao processar a requisição." })),
+            )
+                .into_response()
+        }
+    }
 }
 
 // ------------------------

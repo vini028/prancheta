@@ -4,7 +4,7 @@ use std::sync::Arc;
 use chrono::Utc;
 
 use crate::{
-    db::DbPool,
+    db::{conn_or_503, DbPool},
     auth::middleware::{AuthenticatedUser, require_role},
     models::cliente_model::{Cliente, NewCliente, UpdateCliente},
     schema::clientes,
@@ -54,7 +54,10 @@ pub async fn create_cliente_handler(
         Err(msg) => return (StatusCode::BAD_REQUEST, Json(serde_json::json!({ "error": msg }))).into_response(),
     };
 
-    let mut conn = pool.get().expect("Erro ao obter conexão do pool");
+    let mut conn = match conn_or_503(&pool) {
+        Ok(c) => c,
+        Err(r) => return r,
+    };
 
     let existente = clientes::table
         .filter(clientes::cpf.eq(&cpf_norm))
@@ -64,7 +67,14 @@ pub async fn create_cliente_handler(
 
     match existente {
         Ok(Some(_)) => return conflito_cpf().into_response(),
-        Err(e) => return (StatusCode::INTERNAL_SERVER_ERROR, format!("Erro ao validar CPF: {}", e)).into_response(),
+            Err(e) => {
+                eprintln!("Erro ao validar CPF do cliente: {}", e);
+                return (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(serde_json::json!({ "error": "Erro interno ao processar a requisição." })),
+                )
+                    .into_response();
+            }
         Ok(None) => {}
     }
 
@@ -84,7 +94,7 @@ pub async fn create_cliente_handler(
             if msg.contains("idx_clientes_cpf") || msg.contains("clientes_cpf_key") || msg.contains("duplicate key") {
                 return conflito_cpf().into_response();
             }
-            (StatusCode::INTERNAL_SERVER_ERROR, format!("Erro ao criar cliente: {}", e)).into_response()
+            (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({ "error": "Erro interno ao processar a requisição." }))).into_response()
         }
     }
 }
@@ -98,7 +108,10 @@ pub async fn list_clientes_handler(
         return response;
     }
 
-    let mut conn = pool.get().expect("Erro ao obter conexão do pool");
+    let mut conn = match conn_or_503(&pool) {
+        Ok(c) => c,
+        Err(r) => return r,
+    };
 
     match clientes::table
         .select(Cliente::as_select())
@@ -106,7 +119,10 @@ pub async fn list_clientes_handler(
         .load::<Cliente>(&mut conn)
     {
         Ok(lista) => Json(lista).into_response(),
-        Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, format!("Erro ao listar clientes: {}", e)).into_response(),
+        Err(e) => {
+            eprintln!("Erro ao listar clientes: {}", e);
+            (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({ "error": "Erro interno ao processar a requisição." }))).into_response()
+        }
     }
 }
 
@@ -120,7 +136,10 @@ pub async fn get_cliente_handler(
         return response;
     }
 
-    let mut conn = pool.get().expect("Erro ao obter conexão do pool");
+    let mut conn = match conn_or_503(&pool) {
+        Ok(c) => c,
+        Err(r) => return r,
+    };
 
     match clientes::table
         .find(id)
@@ -129,7 +148,10 @@ pub async fn get_cliente_handler(
     {
         Ok(cliente) => Json(cliente).into_response(),
         Err(diesel::result::Error::NotFound) => (StatusCode::NOT_FOUND, Json(serde_json::json!({ "error": "Cliente não encontrado." }))).into_response(),
-        Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, format!("Erro ao buscar cliente: {}", e)).into_response(),
+        Err(e) => {
+            eprintln!("Erro ao buscar cliente: {}", e);
+            (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({ "error": "Erro interno ao processar a requisição." }))).into_response()
+        }
     }
 }
 
@@ -179,7 +201,10 @@ pub async fn update_cliente_handler(
         }
     };
 
-    let mut conn = pool.get().expect("Erro ao obter conexão do pool");
+    let mut conn = match conn_or_503(&pool) {
+        Ok(c) => c,
+        Err(r) => return r,
+    };
 
     // CPF em uso por outro cliente?
     if let Some(ref cpf_norm) = cpf {
@@ -191,7 +216,14 @@ pub async fn update_cliente_handler(
             .optional()
         {
             Ok(Some(_)) => return conflito_cpf().into_response(),
-            Err(e) => return (StatusCode::INTERNAL_SERVER_ERROR, format!("Erro ao validar CPF: {}", e)).into_response(),
+            Err(e) => {
+                eprintln!("Erro ao validar CPF do cliente: {}", e);
+                return (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(serde_json::json!({ "error": "Erro interno ao processar a requisição." })),
+                )
+                    .into_response();
+            }
             Ok(None) => {}
         }
     }
@@ -212,7 +244,7 @@ pub async fn update_cliente_handler(
             if msg.contains("idx_clientes_cpf") || msg.contains("clientes_cpf_key") || msg.contains("duplicate key") {
                 return conflito_cpf().into_response();
             }
-            (StatusCode::INTERNAL_SERVER_ERROR, format!("Erro ao atualizar cliente: {}", e)).into_response()
+            (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({ "error": "Erro interno ao processar a requisição." }))).into_response()
         }
     }
 }
@@ -228,11 +260,17 @@ pub async fn delete_cliente_handler(
         return response;
     }
 
-    let mut conn = pool.get().expect("Erro ao obter conexão do pool");
+    let mut conn = match conn_or_503(&pool) {
+        Ok(c) => c,
+        Err(r) => return r,
+    };
 
     match diesel::delete(clientes::table.find(id)).execute(&mut conn) {
         Ok(count) if count > 0 => StatusCode::NO_CONTENT.into_response(),
         Ok(_) => (StatusCode::NOT_FOUND, Json(serde_json::json!({ "error": "Cliente não encontrado." }))).into_response(),
-        Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, format!("Erro ao excluir cliente: {}", e)).into_response(),
+        Err(e) => {
+            eprintln!("Erro ao excluir cliente: {}", e);
+            (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({ "error": "Erro interno ao processar a requisição." }))).into_response()
+        }
     }
 }

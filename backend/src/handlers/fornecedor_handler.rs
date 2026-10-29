@@ -4,7 +4,7 @@ use std::sync::Arc;
 use chrono::Utc;
 
 use crate::{
-    db::DbPool,
+    db::{conn_or_503, DbPool},
     auth::middleware::{AuthenticatedUser, require_role},
     models::fornecedor_model::{Fornecedor, NewFornecedor, UpdateFornecedor},
     schema::fornecedores,
@@ -19,14 +19,21 @@ pub async fn create_fornecedor_handler(
         return response;
     }
 
-    let mut conn = pool.get().expect("Erro ao obter conexão do pool");
+    let mut conn = match conn_or_503(&pool) {
+        Ok(c) => c,
+        Err(r) => return r,
+    };
 
-    let novo_fornecedor = diesel::insert_into(fornecedores::table)
+    match diesel::insert_into(fornecedores::table)
         .values(&payload)
         .get_result::<Fornecedor>(&mut conn)
-        .expect("Erro ao inserir fornecedor");
-
-    (StatusCode::CREATED, Json(novo_fornecedor)).into_response()
+    {
+        Ok(novo_fornecedor) => (StatusCode::CREATED, Json(novo_fornecedor)).into_response(),
+        Err(e) => {
+            eprintln!("Erro ao inserir fornecedor: {}", e);
+            (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({ "error": "Erro interno ao processar a requisição." }))).into_response()
+        }
+    }
 }
 
 pub async fn list_fornecedores_handler(
@@ -37,13 +44,20 @@ pub async fn list_fornecedores_handler(
         return response;
     }
 
-    let mut conn = pool.get().expect("Erro ao obter conexão do pool");
+    let mut conn = match conn_or_503(&pool) {
+        Ok(c) => c,
+        Err(r) => return r,
+    };
 
-    let lista = fornecedores::table
+    match fornecedores::table
         .load::<Fornecedor>(&mut conn)
-        .expect("Erro ao listar fornecedores");
-
-    Json(lista).into_response()
+    {
+        Ok(lista) => Json(lista).into_response(),
+        Err(e) => {
+            eprintln!("Erro ao listar fornecedores: {}", e);
+            (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({ "error": "Erro interno ao processar a requisição." }))).into_response()
+        }
+    }
 }
 
 pub async fn update_fornecedor_handler(
@@ -56,7 +70,10 @@ pub async fn update_fornecedor_handler(
         return response;
     }
 
-    let mut conn = pool.get().expect("Erro ao obter conexão do pool");
+    let mut conn = match conn_or_503(&pool) {
+        Ok(c) => c,
+        Err(r) => return r,
+    };
 
     let fornecedor_atualizado = diesel::update(fornecedores::table.find(id))
         .set((
@@ -67,7 +84,11 @@ pub async fn update_fornecedor_handler(
 
     match fornecedor_atualizado {
         Ok(f) => (StatusCode::OK, Json(f)).into_response(),
-        Err(_) => (StatusCode::NOT_FOUND, "Fornecedor não encontrado").into_response(),
+        Err(diesel::result::Error::NotFound) => (StatusCode::NOT_FOUND, Json(serde_json::json!({ "error": "Fornecedor não encontrado." }))).into_response(),
+        Err(e) => {
+            eprintln!("Erro ao atualizar fornecedor: {}", e);
+            (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({ "error": "Erro interno ao processar a requisição." }))).into_response()
+        }
     }
 }
 
@@ -80,7 +101,10 @@ pub async fn delete_fornecedor_handler(
         return response;
     }
 
-    let mut conn = pool.get().expect("Erro ao obter conexão do pool");
+    let mut conn = match conn_or_503(&pool) {
+        Ok(c) => c,
+        Err(r) => return r,
+    };
 
     match diesel::delete(fornecedores::table.find(id)).execute(&mut conn) {
         Ok(count) if count > 0 => StatusCode::NO_CONTENT.into_response(),
@@ -88,6 +112,9 @@ pub async fn delete_fornecedor_handler(
         Err(diesel::result::Error::DatabaseError(diesel::result::DatabaseErrorKind::ForeignKeyViolation, _)) => {
             (StatusCode::CONFLICT, Json(serde_json::json!({ "error": "Não é possível excluir: existem pedidos de compra vinculados a este fornecedor." }))).into_response()
         }
-        Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, format!("Erro ao excluir fornecedor: {}", e)).into_response(),
+        Err(e) => {
+            eprintln!("Erro ao excluir fornecedor: {}", e);
+            (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({ "error": "Erro interno ao processar a requisição." }))).into_response()
+        }
     }
 }

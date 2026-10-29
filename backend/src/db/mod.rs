@@ -1,9 +1,13 @@
 use anyhow::Result;
+use axum::http::StatusCode;
+use axum::response::{IntoResponse, Json, Response};
 use diesel::prelude::*;
 use diesel::r2d2::{self, ConnectionManager};
 use diesel_migrations::{MigrationHarness, embed_migrations};
 use dotenvy::dotenv;
 use std::env;
+
+use serde_json::json;
 
 pub type DbPool = r2d2::Pool<ConnectionManager<PgConnection>>;
 pub type DbConnection = r2d2::PooledConnection<ConnectionManager<PgConnection>>;
@@ -19,9 +23,19 @@ pub fn establish_connection_pool() -> DbPool {
         .expect("Failed to create pool")
 }
 
-/// Obtém uma conexão da pool (para uso em funções de repositório).
-pub fn get_connection(pool: &DbPool) -> DbConnection {
-    pool.get().expect("Failed to get DB connection from pool")
+/// Obtém uma conexão da pool ou devolve uma resposta 503 (quando a pool está
+/// esgotada ou o banco está indisponível), em vez de `panic` como fazia o
+/// antigo `get_connection`. Usar nos handlers:
+/// `let mut conn = match conn_or_503(&pool) { Ok(c) => c, Err(r) => return r };`
+pub fn conn_or_503(pool: &DbPool) -> Result<DbConnection, Response> {
+    match pool.get() {
+        Ok(conn) => Ok(conn),
+        Err(_) => Err((
+            StatusCode::SERVICE_UNAVAILABLE,
+            Json(json!({ "error": "Serviço indisponível temporariamente" })),
+        )
+            .into_response()),
+    }
 }
 
 pub fn run_migrations(pool: &DbPool) -> Result<()> {

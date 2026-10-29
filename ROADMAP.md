@@ -120,6 +120,14 @@ Este documento mapeia o desenvolvimento incremental do **Prancheta**, dividido e
 - [x] **Faturamento Liquido:** Calcular a subtração do (Valor Total Vendido - Valor Total Comprado - Comissão de 5%) e exibir no card de "Faturamento".
 - [x] **Detalhes do Faturamento:** Ao clicar no card de "Faturamento", exibir os valores brutos (Total Vendido e Total Comprado).
 
+### Refinamentos de Robustez (Back-end)
+- [x] Handlers sem `panic`: pool esgotada/indisponível responde `503 Service Unavailable` com JSON genérico (`conn_or_503` em todas as rotas, incluindo `/api/me`).
+- [x] Erros do banco não vazam ao cliente: 500 com mensagem genérica (`{ "error": "Erro interno ao processar a requisição." }`) e detalhes apenas no log do servidor (`eprintln!`).
+- [x] `GET /api/me` passa a retornar `name`/`email`/`role` do registro do banco (as claims do JWT podem ficar desatualizadas).
+- [x] Regras de permissão dos pedidos de compra extraídas como funções puras testadas: `pode_alterar_pedido` (ADMIN qualquer / BUYER próprio / SELLER nunca) e `pode_excluir_pedido` (BUYER nunca exclui APROVADO).
+- [x] Tratamento de erros de fornecedores padronizado em JSON (criação, listagem e edição igualando o formato do DELETE; remoção de `expect` em request-processing).
+- [x] `JWT_SECRET` documentada como variável obrigatória (README, `.env.exemplo` e `Cargo.toml`).
+
 ### Entregáveis Ágeis
 - [ ] Gravação do vídeo final apresentando o sistema completo e os diagramas UML.
 - [ ] Submissão final no Google Classroom com lista dos participantes.
