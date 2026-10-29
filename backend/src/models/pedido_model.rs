@@ -87,11 +87,6 @@ pub struct UpdatePedidoInput {
 }
 
 #[derive(Deserialize, Debug)]
-pub struct UpdatePedidoStatusInput {
-    pub status: String,
-}
-
-#[derive(Deserialize, Debug)]
 pub struct UpdateStatusEnvioInput {
     pub status_envio: String,
     pub observacao_problema: Option<String>,

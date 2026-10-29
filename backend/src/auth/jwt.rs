@@ -14,7 +14,7 @@ pub struct Claims {
 }
 
 pub fn create_jwt(user_id: Uuid, name: &str, email: &str, role: &str) -> Result<String, String> {
-    let jwt_secret = std::env::var("JWT_SECRET").unwrap_or_else(|_| "secret_padrao_dev".to_string());
+    let jwt_secret = std::env::var("JWT_SECRET").expect("JWT_SECRET must be set");
     // Define a expiração para 8 horas (8 * 3600 segundos)
     let expiration = chrono::Utc::now()
         .checked_add_signed(chrono::Duration::hours(8))
@@ -39,7 +39,7 @@ pub fn create_jwt(user_id: Uuid, name: &str, email: &str, role: &str) -> Result<
 
 /// Valida a assinatura e a expiração do token JWT
 pub fn decode_jwt(token: &str) -> Result<Claims, String> {
-    let jwt_secret = std::env::var("JWT_SECRET").unwrap_or_else(|_| "secret_padrao_dev".to_string());
+    let jwt_secret = std::env::var("JWT_SECRET").expect("JWT_SECRET must be set");
 
     let token_data = decode::<Claims>(
         token,

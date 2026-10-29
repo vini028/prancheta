@@ -1,0 +1,165 @@
+@startuml diagrama-classes
+!theme plain
+title Prancheta — Diagrama de Classes (domínio)
+skinparam shadowing false
+skinparam defaultFontName DejaVu Sans
+skinparam classAttributeIconSize 0
+skinparam class {
+  BackgroundColor #FFFFFF
+  BorderColor #2F5D8A
+  HeaderBackgroundColor #E8F0F8
+}
+skinparam ArrowColor #444444
+skinparam linetype ortho
+hide empty members
+
+enum Role {
+  ADMIN
+  BUYER
+  SELLER
+}
+enum StatusPedido {
+  PENDENTE
+  APROVADO
+  REJEITADO
+  CANCELADO
+}
+enum StatusEnvio {
+  CONFIRMADO
+  ENVIADO
+  RECEBIDO
+  CONFERIDO
+  CONCLUIDO
+  COM_PROBLEMA
+}
+enum StatusItem {
+  PENDENTE
+  OK
+  PROBLEMA
+}
+enum MetodoPagamento {
+  DINHEIRO
+  PIX
+  CARTAO_CREDITO
+  CARTAO_DEBITO
+}
+
+class User {
+  - id : UUID
+  - name : String
+  - email : String {unique}
+  - passwordHash : String
+  - role : Role
+  - isActive : Boolean
+  - createdAt : DateTime
+  - updatedAt : DateTime
+  + registrar()
+  + autenticar() : JWT
+  + alterarSenha(atual, nova)
+  + alterarRole(role)
+  + ativarDesativar(ativo)
+}
+
+class Fornecedor {
+  - id : Integer
+  - nome : String
+  - cnpj : String [0..1]
+  - telefone : String [0..1]
+  - createdAt : DateTime
+  - updatedAt : DateTime
+}
+
+class PedidoCompra {
+  - id : Integer
+  - status : StatusPedido
+  - statusEnvio : StatusEnvio [0..1]
+  - observacaoProblema : String [0..1]
+  - createdAt : DateTime
+  - updatedAt : DateTime
+  + aprovar()
+  + rejeitar()
+  + cancelar()
+  + avancarStatusEnvio(novo)
+  + registrarConferencia(itens)
+  + concluir()
+  + valorTotal() : Decimal
+}
+
+class PedidoItem {
+  - id : Integer
+  - item : String
+  - ean : String [0..1] {max 13}
+  - quantidade : Integer
+  - valorUnitario : Decimal
+  - quantidadeRecebida : Integer [0..1]
+  - statusItem : StatusItem
+  - observacaoItem : String [0..1]
+}
+
+class Produto {
+  - id : Integer
+  - nome : String
+  - ean : String {unique, max 13}
+  - precoCompra : Decimal
+  - precoVenda : Decimal
+  - quantidadeEstoque : Integer
+  - createdAt : DateTime
+  - updatedAt : DateTime
+  + darEntrada(qtd, precoCompra)
+  + baixarEstoque(qtd)
+  + precoVendaPadrao() : Decimal
+  + estoqueCritico() : Boolean
+}
+
+class Cliente {
+  - id : Integer
+  - nome : String
+  - cpf : String {unique}
+  - email : String [0..1]
+  - createdAt : DateTime
+  - updatedAt : DateTime
+}
+
+class Venda {
+  - id : Integer
+  - metodoPagamento : MetodoPagamento
+  - subtotal : Decimal
+  - descontoTotal : Decimal
+  - valorFinal : Decimal
+  - createdAt : DateTime
+  + calcularDescontos()
+  + finalizar()
+}
+
+class ItemVenda {
+  - id : Integer
+  - quantidade : Integer {> 0}
+  - precoUnitario : Decimal
+  - subtotal : Decimal
+}
+
+
+User "1" <-- "0..*" PedidoCompra : comprador
+Fornecedor "1" <-- "0..*" PedidoCompra : fornecedor
+PedidoCompra "1" *-- "1..*" PedidoItem : itens
+
+User "1" <-- "0..*" Venda : vendedor
+Cliente "0..1" <-- "0..*" Venda : cliente
+Venda "1" *-- "1..*" ItemVenda : itens
+ItemVenda "0..*" --> "1" Produto : produto
+
+PedidoItem ..> Produto : via EAN
+
+note right of Venda
+  Descontos acumulativos:
+  5% se cliente cadastrado;
+  +5% sobre o restante se
+  DINHEIRO ou PIX.
+  Cliente nulo = "não identificado".
+end note
+
+note bottom of PedidoCompra
+  Ao concluir: soma quantidadeRecebida ao estoque,
+  atualiza precoCompra e cria o Produto se o EAN for inédito.
+end note
+@enduml

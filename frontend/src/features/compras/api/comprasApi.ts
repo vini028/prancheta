@@ -39,10 +39,6 @@ export interface CreatePedidoInput {
   itens: CreatePedidoItemInput[];
 }
 
-export interface UpdatePedidoStatusInput {
-  status: string;
-}
-
 export interface ConferenciaItemInput {
   item_id: number;
   quantidade_recebida: number;
@@ -76,13 +72,6 @@ export const updatePedidoApi = (id: number, data: CreatePedidoInput): Promise<vo
 export const deletePedidoApi = (id: number): Promise<void> =>
   apiFetch<void>(`/pedidos-compra/${id}`, {
     method: 'DELETE',
-  });
-
-// PATCH /api/pedidos-compra/:id/status
-export const updatePedidoStatusApi = (id: number, data: UpdatePedidoStatusInput): Promise<Pedido> =>
-  apiFetch<Pedido>(`/pedidos-compra/${id}/status`, {
-    method: 'PATCH',
-    body: JSON.stringify(data),
   });
 
 // GET /api/pedidos-compra/:id/itens

@@ -112,7 +112,7 @@ pub async fn update_produto_handler(
     State(pool): State<Arc<DbPool>>,
     user: AuthenticatedUser,
     Path(id): Path<i32>,
-    Json(mut payload): Json<UpdateProduto>,
+    Json(payload): Json<UpdateProduto>,
 ) -> impl IntoResponse {
     if let Err(response) = require_role(&user.0, &["ADMIN"]) {
         return response;
@@ -128,14 +128,6 @@ pub async fn update_produto_handler(
     if let Some(ref pv) = payload.preco_venda {
         if !preco_valido(pv) {
             return (StatusCode::BAD_REQUEST, Json(erro_preco_venda_invalido())).into_response();
-        }
-    }
-    // Se o custo mudou e nenhum preço de venda foi informado, o padrão
-    // (compra × 1,30) é reaplicado; preço individualizado nunca é
-    // sobrescrito sem pedido explícito.
-    if payload.preco_venda.is_none() {
-        if let Some(ref preco) = payload.preco_compra {
-            payload.preco_venda = Some(preco_venda_padrao(preco));
         }
     }
     if let Some(qtd) = payload.quantidade_estoque {
@@ -178,6 +170,9 @@ pub async fn delete_produto_handler(
     match diesel::delete(produtos::table.find(id)).execute(&mut conn) {
         Ok(count) if count > 0 => StatusCode::NO_CONTENT.into_response(),
         Ok(_) => (StatusCode::NOT_FOUND, Json(serde_json::json!({ "error": "Produto não encontrado." }))).into_response(),
+        Err(diesel::result::Error::DatabaseError(diesel::result::DatabaseErrorKind::ForeignKeyViolation, _)) => {
+            (StatusCode::CONFLICT, Json(serde_json::json!({ "error": "Não é possível excluir: existem vendas vinculadas a este produto." }))).into_response()
+        }
         Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, format!("Erro ao excluir produto: {}", e)).into_response(),
     }
 }

@@ -22,7 +22,7 @@ Este documento mapeia o desenvolvimento incremental do **Prancheta**, dividido e
 
 ### Back-end (Rust/Axum/Diesel)
 - [x] Migration e model para a tabela `fornecedores` (`id`, `nome`, `cnpj`, `telefone`).
-- [x] Migration e model para a tabela `pedidos_compra` (`id`, `fornecedor_id`, `item`, `quantidade`, `valor_total`, `comprador_id`).
+- [x] Migration e model para a tabela `pedidos_compra` (`id`, `fornecedor_id`, `status`, `comprador_id`) + tabela `pedido_itens` (`item`, `ean`, `quantidade`, `valor_unitario`, `quantidade_recebida`, `status_item`, `observacao_item`).
 - [x] Middleware para validação do perfil (`Comprador` ou `Admin`).
 - [x] Handlers REST: `POST/GET /fornecedores` e `POST/GET /pedidos-compra`.
 
@@ -56,8 +56,8 @@ Este documento mapeia o desenvolvimento incremental do **Prancheta**, dividido e
 - [x] Tela de Conferência de Itens (`/compras/:id/conferencia`) para validação do recebimento antes do lançamento no estoque.
 
 ### Entregáveis Ágeis
-- [ ] Gravação do vídeo com perfil `Admin` cadastrando produtos no estoque e aprovando pedidos de compra.
-- [ ] Submissão no Google Classroom.
+- [x] Gravação do vídeo com perfil `Admin` cadastrando produtos no estoque e aprovando pedidos de compra.
+- [x] Submissão no Google Classroom.
 
 ---
 
@@ -88,19 +88,37 @@ Este documento mapeia o desenvolvimento incremental do **Prancheta**, dividido e
 > **Foco:** Painel de Usuários, documentação arquitetural e melhorias visuais.
 
 ### Módulo do Administrador — Gestão de Usuários
-- [ ] Painel de Administração de Usuários (`/users`):
+- [x] Painel de Administração de Usuários (`/users`):
   - Rota `PATCH /api/admin/users/:id/role` para alteração de privilégios (`ADMIN`, `BUYER`, `SELLER`).
   - Rota `PATCH /api/admin/users/:id/active` para habilitação/desabilitação de contas (`is_active`).
   - Rota `DELETE /api/admin/users/:id` para exclusão definitiva de cadastros.
 
 ### Documentação Arquitetural
-- [ ] **Diagrama de Casos de Uso:** Mapeamento dos atores (`Comprador`, `Vendedor`, `Administrador`) e suas interações com o sistema.
-- [ ] **Diagrama de Classes:** Mapeamento da estrutura das entidades (`User`, `Fornecedor`, `PedidoCompra`, `Produto`, `Cliente`, `Venda`).
-- [ ] Exportação e inclusão dos diagramas na pasta `/docs` do repositório.
+- [x] **Diagrama de Casos de Uso:** Mapeamento dos atores (`Comprador`, `Vendedor`, `Administrador`) e suas interações com o sistema.
+- [x] **Diagrama de Classes:** Mapeamento da estrutura das entidades (`User`, `Fornecedor`, `PedidoCompra`, `Produto`, `Cliente`, `Venda`).
+- [x] Exportação e inclusão dos diagramas na pasta `/docs` do repositório.
 
-### Funcionalidades Visuais e Dashboard
-- [ ] Destaque/Alerta em vermelho na interface para produtos com estoque baixo (ex: < 5 unidades).
-- [ ] Dashboard com indicadores agregados (Total de Compras x Total de Vendas).
+### 📊 Dashboard e Métricas — Front-end (Admin, Comprador e Vendedor)
+
+#### 📊 Dashboard - Frontend Admin
+- [x] **Estoque Crítico:** Contar e exibir no card "Estoque crítico" o total de produtos com quantidade `<= 5` no estoque.
+- [x] **Detalhes do Estoque:** Ao clicar no card "Estoque crítico", abrir listagem/modal com os itens que estão em estado crítico.
+- [x] **Faturamento Liquido:** Calcular a subtração do (Valor Total Vendido - Valor Total Comprado - Comissão de 5%) e exibir no card de "Faturamento".
+- [x] **Detalhes do Faturamento:** Ao clicar no card de "Faturamento", exibir os valores brutos (Total Vendido e Total Comprado).
+
+#### 📊 Dashboard - Frontend Comprador
+- [x] **Estoque Crítico:** Contar e exibir no card "Estoque crítico" o total de produtos com quantidade `<= 5` no estoque.
+- [x] **Detalhes do Estoque:** Ao clicar no card "Estoque crítico", abrir listagem/modal com os itens que estão em estado crítico.
+- [x] **Faturamento Liquido:** Calcular a subtração do (Valor Total Vendido - Valor Total Comprado - Comissão de 5%) e exibir no card de "Faturamento".
+- [x] **Detalhes do Faturamento:** Ao clicar no card de "Faturamento", exibir os valores brutos (Total Vendido e Total Comprado).
+
+#### 📊 Dashboard - Frontend Vendedor
+- [x] **Total Vendido (Substituição):** Trocar o nome do card "Estoque crítico" para "Total vendido".
+- [x] **Métrica de Vendas:** Somar o valor total (em Reais) de todas as vendas realizadas pelo **vendedor logado** e exibir no card "Total vendido".
+- [x] **Detalhes de Vendas:** Ao clicar no card "Total vendido", exibir a lista de todas as vendas realizadas por este vendedor.
+- [x] **Comissão:** Criar um novo card de "Comissão" que calcule e exiba `Total vendido pelo vendedor logado x 5%`.
+- [x] **Faturamento Liquido:** Calcular a subtração do (Valor Total Vendido - Valor Total Comprado - Comissão de 5%) e exibir no card de "Faturamento".
+- [x] **Detalhes do Faturamento:** Ao clicar no card de "Faturamento", exibir os valores brutos (Total Vendido e Total Comprado).
 
 ### Entregáveis Ágeis
 - [ ] Gravação do vídeo final apresentando o sistema completo e os diagramas UML.

@@ -82,13 +82,12 @@ pub async fn delete_fornecedor_handler(
 
     let mut conn = pool.get().expect("Erro ao obter conexão do pool");
 
-    let linhas_afetadas = diesel::delete(fornecedores::table.find(id))
-        .execute(&mut conn)
-        .expect("Erro ao deletar fornecedor");
-
-    if linhas_afetadas > 0 {
-        (StatusCode::NO_CONTENT).into_response()
-    } else {
-        (StatusCode::NOT_FOUND, "Fornecedor não encontrado").into_response()
+    match diesel::delete(fornecedores::table.find(id)).execute(&mut conn) {
+        Ok(count) if count > 0 => StatusCode::NO_CONTENT.into_response(),
+        Ok(_) => (StatusCode::NOT_FOUND, Json(serde_json::json!({ "error": "Fornecedor não encontrado." }))).into_response(),
+        Err(diesel::result::Error::DatabaseError(diesel::result::DatabaseErrorKind::ForeignKeyViolation, _)) => {
+            (StatusCode::CONFLICT, Json(serde_json::json!({ "error": "Não é possível excluir: existem pedidos de compra vinculados a este fornecedor." }))).into_response()
+        }
+        Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, format!("Erro ao excluir fornecedor: {}", e)).into_response(),
     }
 }

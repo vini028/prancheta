@@ -39,7 +39,7 @@ async fn main() -> Result<()> {
     .expose_headers(Any); // opcional, mas pode ser mantido
 
     let app = Router::new()
-        .route("/", get(|| async { "API Simples-ERP funcionando!" }))
+        .route("/", get(|| async { "API Prancheta funcionando!" }))
         .merge(routes::create_router())
         .with_state(pool)
         .layer(cors);

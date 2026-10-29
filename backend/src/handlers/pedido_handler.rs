@@ -7,7 +7,7 @@ use bigdecimal::{BigDecimal, Zero};
 use crate::{
     auth::middleware::{AuthenticatedUser, require_role},
     db::DbPool,
-    models::pedido_model::{CreatePedidoInput, CreatePedidoItemInput, NewPedidoCompra, NewPedidoItem, PedidoCompra, PedidoCompraResponse, PedidoItem, UpdatePedidoInput, UpdatePedidoStatusInput, UpdateStatusEnvioInput, ConferenciaPedidoInput},
+    models::pedido_model::{CreatePedidoInput, CreatePedidoItemInput, NewPedidoCompra, NewPedidoItem, PedidoCompra, PedidoCompraResponse, PedidoItem, UpdatePedidoInput, UpdateStatusEnvioInput, ConferenciaPedidoInput},
     models::produto_model::{NewProduto, Produto},
     schema::{pedido_itens, pedidos_compra, produtos, users},
 };
@@ -123,7 +123,6 @@ pub async fn update_pedido_handler(
 
     let mut conn = pool.get().expect("Erro ao obter conexão do pool");
 
-    // Só permite editar pedidos ainda PENDENTES (máquina de aprovação)
     let pedido_atual = pedidos_compra::table
         .find(id)
         .select(PedidoCompra::as_select())
@@ -132,10 +131,14 @@ pub async fn update_pedido_handler(
     match pedido_atual {
         Err(diesel::result::Error::NotFound) => return StatusCode::NOT_FOUND.into_response(),
         Err(e) => return (StatusCode::INTERNAL_SERVER_ERROR, format!("Erro ao buscar pedido: {}", e)).into_response(),
-        Ok(p) if p.status != "PENDENTE" => {
-            return (StatusCode::CONFLICT, Json(serde_json::json!({ "error": "Apenas pedidos com status PENDENTE podem ser editados." }))).into_response();
+        Ok(p) => {
+            if user.0.role == "BUYER" && p.comprador_id != user.0.sub {
+                return (StatusCode::FORBIDDEN, Json(serde_json::json!({ "error": "Você só pode editar seus próprios pedidos de compra." }))).into_response();
+            }
+            if p.status != "PENDENTE" {
+                return (StatusCode::CONFLICT, Json(serde_json::json!({ "error": "Apenas pedidos com status PENDENTE podem ser editados." }))).into_response();
+            }
         }
-        Ok(_) => {}
     }
 
     if let Err(msg) = validar_itens_pedido(&payload.itens) {
@@ -190,7 +193,14 @@ pub async fn delete_pedido_handler(
         Err(response) => return response,
     };
 
-    // Pedido concluído já subiu ao estoque: não pode ser excluído.
+    if user.0.role == "BUYER" && pedido.comprador_id != user.0.sub {
+        return (StatusCode::FORBIDDEN, Json(serde_json::json!({ "error": "Você só pode excluir seus próprios pedidos de compra." }))).into_response();
+    }
+
+    if user.0.role == "BUYER" && pedido.status == "APROVADO" {
+        return (StatusCode::CONFLICT, Json(serde_json::json!({ "error": "Pedidos aprovados não podem ser excluídos por compradores." }))).into_response();
+    }
+
     if pedido.status_envio.as_deref() == Some("CONCLUIDO") {
         return (StatusCode::CONFLICT, Json(serde_json::json!({ "error": "Pedidos concluídos não podem ser excluídos, pois já tiveram baixa no estoque." }))).into_response();
     }
@@ -202,43 +212,6 @@ pub async fn delete_pedido_handler(
         Ok(count) if count > 0 => StatusCode::NO_CONTENT.into_response(),
         Ok(_) => StatusCode::NOT_FOUND.into_response(),
         Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, format!("Erro ao excluir pedido: {}", e)).into_response(),
-    }
-}
-
-// Adicione a função ao final do arquivo:
-pub async fn update_pedido_status_handler(
-    State(pool): State<Arc<DbPool>>,
-    user: AuthenticatedUser,
-    Path(id): Path<i32>,
-    Json(payload): Json<UpdatePedidoStatusInput>,
-) -> impl IntoResponse {
-    if let Err(response) = require_role(&user.0, &["ADMIN", "BUYER"]) {
-        return response;
-    }
-
-    let mut conn = pool.get().expect("Erro ao obter conexão do pool");
-
-    let pedido_atual = match buscar_pedido(&mut conn, id) {
-        Ok(p) => p,
-        Err(response) => return response,
-    };
-
-    // Pedido concluído já subiu ao estoque: status não pode mais mudar.
-    if pedido_atual.status_envio.as_deref() == Some("CONCLUIDO") {
-        return (StatusCode::CONFLICT, Json(serde_json::json!({ "error": "Pedidos concluídos não podem ter o status alterado, pois já tiveram baixa no estoque." }))).into_response();
-    }
-
-    let resultado = diesel::update(pedidos_compra::table.find(id))
-        .set((
-            pedidos_compra::status.eq(payload.status),
-            pedidos_compra::updated_at.eq(Utc::now().naive_utc()),
-        ))
-        .execute(&mut conn);
-
-    match resultado {
-        Ok(count) if count > 0 => StatusCode::NO_CONTENT.into_response(),
-        Ok(_) => StatusCode::NOT_FOUND.into_response(),
-        Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, format!("Erro ao atualizar status do pedido: {}", e)).into_response(),
     }
 }
 

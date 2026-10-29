@@ -6,3 +6,4 @@ pub mod pedido_handler;
 pub mod produto_handler;
 pub mod cliente_handler;
 pub mod venda_handler;
+pub mod dashboard_handler;

@@ -53,7 +53,7 @@ export const ProdutoTable: React.FC<ProdutoTableProps> = ({ produtos, loading, c
       key: 'quantidade_estoque',
       header: 'Estoque',
       render: (p) =>
-        p.quantidade_estoque < 5 ? (
+        p.quantidade_estoque <= 5 ? (
           <span style={{ display: 'inline-flex', gap: '8px', alignItems: 'center' }}>
             {p.quantidade_estoque}
             <Badge tone="danger">Estoque baixo</Badge>

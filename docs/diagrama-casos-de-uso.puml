@@ -1,0 +1,115 @@
+@startuml diagrama-casos-de-uso
+!theme plain
+title Prancheta — Diagrama de Casos de Uso
+left to right direction
+skinparam shadowing false
+skinparam packageStyle rectangle
+skinparam defaultFontName DejaVu Sans
+skinparam usecase {
+  BackgroundColor #FFFFFF
+  BorderColor #2F5D8A
+}
+skinparam actor {
+  BackgroundColor #E8F0F8
+  BorderColor #2F5D8A
+}
+skinparam ArrowColor #444444
+skinparam roundCorner 12
+
+actor "Visitante" as VIS
+actor "Usuário\nautenticado" as USR
+actor "Comprador\n(BUYER)" as BUY
+actor "Vendedor\n(SELLER)" as SEL
+actor "Administrador\n(ADMIN)" as ADM
+
+BUY -up-|> USR
+SEL -up-|> USR
+ADM -up-|> BUY
+ADM -up-|> SEL
+
+rectangle "Sistema Prancheta" {
+
+  package "Acesso e Conta" {
+    usecase "UC01\nRegistrar-se\n(BUYER ou SELLER)" as UC01
+    usecase "UC02\nAutenticar (login)" as UC02
+    usecase "UC03\nAlterar própria senha" as UC03
+    usecase "UC04\nConsultar dashboard\npor perfil" as UC04
+    usecase "UC05\nConsultar estoque" as UC05
+  }
+
+  package "Módulo de Compras" {
+    usecase "UC06\nGerenciar fornecedores" as UC06
+    usecase "UC07\nRegistrar pedido\nde compra" as UC07
+    usecase "UC08\nEditar / excluir pedido\n(PENDENTE)" as UC08
+    usecase "UC09\nAtualizar status de envio" as UC09
+    usecase "UC10\nConferir itens recebidos" as UC10
+    usecase "UC11\nReportar problema\nno pedido" as UC11
+    usecase "UC12\nConcluir pedido\n(entrada em estoque)" as UC12
+  }
+
+  package "Módulo de Vendas" {
+    usecase "UC13\nGerenciar clientes" as UC13
+    usecase "UC14\nRealizar venda no PDV" as UC14
+    usecase "UC15\nAplicar descontos" as UC15
+    usecase "UC16\nBaixar estoque" as UC16
+    usecase "UC17\nConsultar histórico\nde vendas" as UC17
+  }
+
+  package "Administração" {
+    usecase "UC18\nAprovar / rejeitar / cancelar\npedido de compra" as UC18
+    usecase "UC19\nGerenciar produtos\ne preço de venda" as UC19
+    usecase "UC20\nRegistrar entrada manual\nde estoque" as UC20
+    usecase "UC21\nGerenciar usuários\n(perfil, ativação, exclusão)" as UC21
+    usecase "UC22\nExcluir cliente" as UC22
+    usecase "UC23\nConsultar vendas\nde todos os vendedores" as UC23
+  }
+}
+
+VIS --> UC01
+VIS --> UC02
+USR --> UC03
+USR --> UC04
+USR --> UC05
+
+BUY --> UC06
+BUY --> UC07
+BUY --> UC08
+BUY --> UC09
+BUY --> UC10
+
+SEL --> UC13
+SEL --> UC14
+SEL --> UC17
+
+ADM --> UC18
+ADM --> UC19
+ADM --> UC20
+ADM --> UC21
+ADM --> UC22
+ADM --> UC23
+
+UC11 .up.> UC09 : <<extend>>
+UC12 .up.> UC09 : <<extend>>
+UC12 ..> UC10 : <<include>>
+UC14 ..> UC15 : <<include>>
+UC14 ..> UC16 : <<include>>
+UC23 .up.> UC17 : <<extend>>
+UC20 ..> UC19 : <<extend>>
+
+note right of UC09
+  Fluxo: CONFIRMADO → ENVIADO →
+  RECEBIDO → CONFERIDO → CONCLUIDO
+  (BUYER só nos próprios pedidos;
+  ADMIN pode em qualquer pedido)
+end note
+
+note right of UC15
+  5% cliente cadastrado +
+  5% sobre o restante se
+  pagamento DINHEIRO/PIX
+end note
+
+note bottom of UC17
+  SELLER vê só as próprias vendas
+end note
+@enduml

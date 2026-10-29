@@ -84,6 +84,21 @@ docker compose ps
 
 Depois que os contêineres forem iniciados, acesse:
 
-- **Front-end:** [http://localhost](http://localhost)
+- **Front-end:** [http://localhost:5173](http://localhost:5173)
 - **Back-end:** [http://localhost:3000](http://localhost:3000)
 - **PostgreSQL:** `localhost:5432`
+
+### 👑 Como criar o primeiro Administrador (Admin)
+
+Como o registro público (`/api/auth/register`) permite cadastrar apenas perfis de **Comprador** (`BUYER`) ou **Vendedor** (`SELLER`), o primeiro administrador do sistema deve ser promovido via banco de dados:
+
+1. Registre uma conta normalmente pela interface de Registro (`/register`).
+2. Acesse o banco de dados PostgreSQL (via container Docker ou psql):
+   ```bash
+   docker exec -it prancheta-db-1 psql -U postgres -d prancheta
+   ```
+3. Execute o comando SQL para atualizar a role do seu usuário para `ADMIN`:
+   ```sql
+   UPDATE users SET role = 'ADMIN' WHERE email = 'seu_email@exemplo.com';
+   ```
+4. Faça logout e login novamente no sistema para adquirir privilégios administrativos.

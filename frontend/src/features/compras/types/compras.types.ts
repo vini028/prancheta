@@ -3,7 +3,6 @@ export type {
   PedidoItem,
   CreatePedidoInput,
   CreatePedidoItemInput,
-  UpdatePedidoStatusInput,
   ConferenciaItemInput,
   ConferenciaPedidoInput,
 } from '../api/comprasApi';

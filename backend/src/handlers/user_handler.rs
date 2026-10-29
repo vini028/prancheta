@@ -230,6 +230,12 @@ pub async fn delete_user_handler(
         Ok(_) => {
             (StatusCode::NOT_FOUND, Json(json!({ "error": "Usuário não encontrado" })))
         }
+        Err(diesel::result::Error::DatabaseError(diesel::result::DatabaseErrorKind::ForeignKeyViolation, _)) => {
+            (
+                StatusCode::CONFLICT,
+                Json(json!({ "error": "Não é possível excluir: existem registros (pedidos/vendas) vinculados a este usuário. Desative o usuário em vez de excluir." })),
+            )
+        }
         Err(e) => {
             eprintln!("Erro ao excluir usuário: {}", e);
             (

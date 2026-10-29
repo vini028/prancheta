@@ -40,7 +40,6 @@ pub fn create_router() -> Router<Arc<DbPool>> {
         .route("/api/fornecedores/:id", put(handlers::fornecedor_handler::update_fornecedor_handler).delete(handlers::fornecedor_handler::delete_fornecedor_handler))
         .route("/api/pedidos-compra", post(handlers::pedido_handler::create_pedido_handler).get(handlers::pedido_handler::list_pedidos_handler))
         .route("/api/pedidos-compra/:id", put(handlers::pedido_handler::update_pedido_handler).delete(handlers::pedido_handler::delete_pedido_handler))
-        .route("/api/pedidos-compra/:id/status", patch(handlers::pedido_handler::update_pedido_status_handler))
         .route("/api/pedidos-compra/:id/aprovar", patch(handlers::pedido_handler::aprovar_pedido_handler))
         .route("/api/pedidos-compra/:id/rejeitar", patch(handlers::pedido_handler::rejeitar_pedido_handler))
         .route("/api/pedidos-compra/:id/cancelar", patch(handlers::pedido_handler::cancelar_pedido_handler))
@@ -60,4 +59,9 @@ pub fn create_router() -> Router<Arc<DbPool>> {
         // Rotas de vendas/PDV (ADMIN ou SELLER)
         .route("/api/vendas", post(handlers::venda_handler::checkout_venda_handler).get(handlers::venda_handler::list_vendas_handler))
         .route("/api/vendas/:id", get(handlers::venda_handler::get_venda_handler))
+
+        // Rotas de Dashboards e Métricas
+        .route("/api/dashboard/admin", get(handlers::dashboard_handler::admin_dashboard_handler))
+        .route("/api/dashboard/seller", get(handlers::dashboard_handler::seller_dashboard_handler))
+        .route("/api/dashboard/buyer", get(handlers::dashboard_handler::buyer_dashboard_handler))
 }
